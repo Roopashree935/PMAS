@@ -358,6 +358,13 @@ pre code { background: none; padding: 0; }
 /* Footer social icons: brand SVG marks */
 .footer-social a svg { width: 16px; height: 16px; fill: currentColor; display: block; }
 
+/* Footer contact deep-link pulse */
+@keyframes pulse-cta {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(14,205,160,0.45); }
+  50% { box-shadow: 0 0 0 8px rgba(14,205,160,0); }
+}
+.pulse-cta { animation: pulse-cta 1.2s ease-out 3; }
+
 /* Long-word safety on narrow screens */
 h1, h2, h3, h4, h5, h6, p, li { overflow-wrap: break-word; }
 .nav, .nav-brand, .nav-links { min-width: 0; }

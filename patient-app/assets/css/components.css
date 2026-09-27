@@ -300,10 +300,11 @@
 .prose {
   max-width: var(--container-narrow);
   margin: 0 auto;
+  padding-inline: var(--space-lg);
 }
 .prose h2 { margin-top: var(--space-xl); margin-bottom: var(--space-sm); }
 .prose h3 { margin-top: var(--space-lg); margin-bottom: var(--space-xs); }
-.prose p { color: var(--text); margin-bottom: var(--space-md); }
+.prose p { color: var(--text); margin-bottom: var(--space-md); line-height: 1.75; }
 .prose ul, .prose ol { margin-bottom: var(--space-md); padding-left: 1.5rem; }
 .prose li { margin-bottom: var(--space-xs); color: var(--text); }
 .prose strong { color: var(--text-bright); }
