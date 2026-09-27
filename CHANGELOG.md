@@ -4,6 +4,12 @@ All notable changes to PMAS are documented here. The project uses a single produ
 
 ## [Unreleased]
 
+### Deployed
+- **PMAS is live end-to-end (27 Sep 2026)** — platform + patient app on GitHub Pages, backend API on Render, PostgreSQL on Supabase (Mumbai), all free tier. Live URLs in `docs/09-deployment.md`.
+- First live patient-loop verification from a mobile device on the deployed app: account registration → medication plan → dose logged → cloud sync confirmed.
+- Deploy fixes: backend Docker image binds to Render's `PORT`; `requirements.txt` lists PyJWT (was: unused python-jose, which broke the clean-environment build).
+- Known limitation: the free-tier API sleeps after ~15 min idle — the first request takes ~30–60 s (the patient app remains fully usable offline).
+
 ### Security
 - **Self-registration is now patient-only.** The register endpoint no longer accepts a client-supplied role, closing a privilege-escalation path (previously anyone could POST `role: "pharmacist"` or `"admin"`).
 - New admin account-governance API — list users, create staff accounts, change roles, suspend/reactivate — administrator-only and audit-logged. Admins cannot change their own role or status.

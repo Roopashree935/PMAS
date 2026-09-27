@@ -14,6 +14,12 @@
   <em>Independent project by Kartik H, pharmacist — telepharmacy for rural & remote chronic care. No institutional affiliation.</em>
 </p>
 
+<p align="center">
+  <a href="https://kartik-h6.github.io/PMAS/">🌐 Live site + patient demo</a> ·
+  <a href="https://pmas-bkwu.onrender.com/docs">⚙️ API docs</a> ·
+  <a href="https://pmas-bkwu.onrender.com/api/v1/health">🩺 API health</a>
+</p>
+
 ---
 
 ## The problem
@@ -74,7 +80,7 @@ Every aspect of the project is documented in [`docs/`](docs/):
 | [06 — Multilingual Counselling Content](docs/06-multilingual-counselling-content.md) | The vernacular comprehension model and the content database schema |
 | [07 — AI Integration Strategy](docs/07-ai-integration-strategy.md) | How PMAS will (and will not) integrate AI/healthcare-intelligence services |
 | [08 — Roadmap](docs/08-roadmap.md) | Phase plan from demo → pilot → research → scale, with current status |
-| [09 — Deployment](docs/09-deployment.md) | Local development and free-tier cloud deployment (Netlify + Render + Supabase) |
+| [09 — Deployment](docs/09-deployment.md) | Local development and free-tier cloud deployment (GitHub Pages + Render + Supabase) — live URLs included |
 | [10 — Funding & Business](docs/10-funding-and-business.md) | Market analysis, revenue model, grant landscape, cost structure |
 
 ## Quick start (local)

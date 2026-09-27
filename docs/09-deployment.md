@@ -1,6 +1,6 @@
 # 09 — Deployment
 
-Everything runs on free tiers at pilot scale. Two paths: local development, and the free-tier cloud stack (Netlify + Render + Supabase).
+Everything runs on free tiers at pilot scale. Two paths: local development, and the free-tier cloud stack (GitHub Pages + Render + Supabase).
 
 ## Local development
 
@@ -33,7 +33,7 @@ Environment variables (from `.env.example`):
 | `DATABASE_URL` | PostgreSQL connection string (local or Supabase) |
 | `JWT_SECRET` | Long random string — generate with `openssl rand -hex 32` |
 | `JWT_EXPIRY_HOURS` | Token lifetime (24 default) |
-| `CORS_ORIGINS` | Comma-separated allowed origins (add your Netlify URL) |
+| `CORS_ORIGINS` | Comma-separated allowed origins (add your GitHub Pages URL) |
 | `HOST` / `PORT` | Bind address |
 
 **Database migration:**
@@ -44,50 +44,61 @@ psql "$DATABASE_URL" -f backend/migrations/001_initial_schema.sql
 
 ## Cloud deployment (free tier)
 
+### Live deployment (verified 27 Sep 2026)
+
+| Component | URL | Host |
+|---|---|---|
+| Platform + patient app | https://kartik-h6.github.io/PMAS/ | GitHub Pages (`.github/workflows/static.yml`) |
+| Backend API | https://pmas-bkwu.onrender.com | Render (Docker runtime, free tier) |
+| API docs (Swagger) | https://pmas-bkwu.onrender.com/docs | — |
+| Health check | https://pmas-bkwu.onrender.com/api/v1/health | — |
+| Database | Supabase PostgreSQL — Mumbai (ap-south-1) | Free tier |
+
+First live end-to-end pass (27 Sep 2026, from a mobile device on the deployed patient app): account registration → medication plan created → dose logged → cloud sync confirmed.
+
+Environment variables set on Render (values are secrets — never commit them): `DATABASE_URL` (Supabase session-pooler URI, scheme `postgresql+asyncpg://`), `JWT_SECRET`, `ADMIN_PHONE`, `ADMIN_PASSWORD`, `CORS_ORIGINS` (the GitHub Pages origin).
+
 ### 1. Database — Supabase
 
 1. Create a free project at supabase.com (region: Mumbai/ap-south-1 if offered).
-2. Copy the **connection string** (Settings → Database) into `DATABASE_URL`, using the pooled connection (port 6543) for serverless-friendly access.
-3. Run the migration via the Supabase SQL Editor: paste the contents of `backend/migrations/001_initial_schema.sql`.
+2. Copy the **Session pooler** connection string (Connect → Session pooler, port 5432) — the direct-connection hostname is IPv6-first and can fail on some hosts; the pooler always works. Set the URL scheme to `postgresql+asyncpg://`. If the database password contains `@` or other URI special characters, percent-encode it (`@` → `%40`) or the string will not parse.
+3. No manual SQL is required: the backend creates all tables on startup (`create_all`). `backend/migrations/001_initial_schema.sql` remains the reference schema.
 
 ### 2. Backend — Render
 
 1. Push this repository to GitHub.
 2. On render.com: **New → Web Service** → connect the repo.
-3. Settings:
-   - Runtime: **Python 3**
-   - Build command: `pip install -r backend/requirements.txt`
-   - Start command: `uvicorn backend.main:app --host 0.0.0.0 --port $PORT` *(or set root directory `backend/` and start `uvicorn main:app --host 0.0.0.0 --port $PORT`)*
-   - Environment variables: everything from the table above.
+3. Settings (as deployed):
+   - Root directory: `backend`
+   - Runtime: **Docker** (auto-detected from `backend/Dockerfile`; the image binds to Render's `PORT`)
+   - Instance type: **Free**
+   - Environment variables: `DATABASE_URL`, `JWT_SECRET`, `ADMIN_PHONE`, `ADMIN_PASSWORD`, `CORS_ORIGINS`
 4. Deploy. Note the URL, e.g. `https://pmas-api.onrender.com`.
 
 > **Free-tier behaviour:** the service sleeps after ~15 minutes of inactivity; the first request after sleep takes ~30 s. Harmless for a pilot (the patient app is offline-first) — if unacceptable later, the lowest paid tier (~$7/month) keeps it always on.
 
-### 3. Patient app — Netlify
+### 3. Patient app + platform site — GitHub Pages
 
-1. On netlify.com: **Add new site → Import from Git** → select this repository.
-2. Settings:
-   - Base directory: `patient-app`
-   - Build command: *(none — static)*
-   - Publish directory: `patient-app`
-3. Deploy. The patient app is at `https://<site>.netlify.app/demo/`, the platform site at the root.
+1. In the repository: **Settings → Pages → Source: GitHub Actions**.
+2. The workflow `.github/workflows/static.yml` deploys `patient-app/` on every push to `main`.
+3. The site is at `https://<user>.github.io/PMAS/`; the patient demo at `/PMAS/demo/`.
 
 ### 4. Wiring it together
 
-1. In the patient app, set the API base URL for `demo/js/api.js` (the sync layer reads it from a constant / `window.PMAS_API_BASE`).
-2. Add the Netlify origin to backend `CORS_ORIGINS`; redeploy the backend.
-3. Register a pharmacist via `POST /api/v1/pharmacist/enroll`, then a patient, assign medication plans, and verify the pharmacist dashboard reflects dose logging.
+1. No code wiring needed: in the patient app's **Account & Cloud Sync** card, the patient enters the backend address (e.g. `https://pmas-bkwu.onrender.com`) — the sync layer stores it on the device.
+2. Set `CORS_ORIGINS` on Render to the GitHub Pages origin; redeploy the backend after any change.
+3. Pharmacist-side flows (enrollment, dashboard, de-identified export) are exercised once the pharmacist portal exists (issues #19–#22).
 
 ### 5. DNS (optional)
 
-If using a custom domain through Cloudflare: CNAME the domain to the Netlify site; keep Netlify's HTTPS. No special config needed for the API at pilot scale.
+If using a custom domain through Cloudflare: CNAME the domain to the GitHub Pages site (`<user>.github.io`); keep HTTPS enforced. No special config needed for the API at pilot scale.
 
 ## Deployment checklist (before any demo)
 
-- [ ] Patient app loads on an Android phone over HTTPS.
+- [x] Patient app loads on an Android phone over HTTPS. *(verified 27 Sep 2026)*
 - [ ] Installable (browser shows "Add to Home Screen"; logo correct after install).
 - [ ] Airplane-mode test: app opens offline with data intact.
-- [ ] Login works against the deployed backend.
+- [x] Login works against the deployed backend. *(verified 27 Sep 2026 — registration, sign-in, medication + dose sync)*
 - [ ] Dose logging appears on the pharmacist dashboard.
 - [ ] Language switch works in all 5 languages.
 - [ ] Research export returns de-identified JSON (spot-check for absence of names/phones).
@@ -96,7 +107,7 @@ If using a custom domain through Cloudflare: CNAME the domain to the Netlify sit
 
 | Item | Cost |
 |---|---|
-| Netlify (100 GB bandwidth) | ₹0 |
+| GitHub Pages (static hosting) | ₹0 |
 | Render free web service | ₹0 |
 | Supabase free tier (500 MB, 50 connections) | ₹0 |
 | Cloudflare DNS | ₹0 |
