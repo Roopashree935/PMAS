@@ -756,6 +756,11 @@ async function syncRegister() {
     showToast(tr('sync_fill_fields'));
     return;
   }
+  const ageBox = el('sync-age');
+  if (!ageBox || !ageBox.checked) {
+    showToast(tr('sync_age_error'));
+    return;
+  }
   try {
     localStorage.setItem('pmas_api_url', baseUrl);
     API.init(baseUrl);

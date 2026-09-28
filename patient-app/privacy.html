@@ -149,15 +149,16 @@
   <section class="section">
     <div class="prose">
       <div class="alert alert-info mb-4">
-        <strong>Summary:</strong> PMAS is an offline-first prototype. All data is stored only on the user's device in browser localStorage. No data is transmitted to any server. The research export removes all personal identifiers and uses Study ID + Study Day instead of raw dates.
+        <strong>Summary:</strong> PMAS is offline-first: all data is stored only on the user's device in browser localStorage, and nothing leaves the device by default. An optional, opt-in <em>Account & Cloud Sync</em> feature — active only if the user explicitly connects a PMAS server address — sends the data listed in Section 2 to that server so the pharmacist can follow up. The research export removes all personal identifiers and uses Study ID + Study Day instead of raw dates.
       </div>
 
       <h2>1. Data Storage</h2>
-      <p>PMAS stores all patient data — profile information, medications, symptom logs, appointments, adherence records, and consent — in the browser's <code>localStorage</code> on the user's own device. This data never leaves the device. There is no server, no database, and no cloud backend.</p>
+      <p>PMAS stores all patient data — profile information, medications, symptom logs, appointments, adherence records, and consent — in the browser's <code>localStorage</code> on the user's own device. By default this data never leaves the device: there is no account, no server, and no database unless the user chooses to enable the optional cloud sync described in Section 2.</p>
       <p><strong>Important limitation:</strong> localStorage is convenient but is not encrypted storage. This is a prototype limitation. For actual patient deployment, stronger protection (such as device-level encryption or secure local databases) would be required.</p>
 
       <h2>2. Data Transmission</h2>
-      <p>PMAS does not transmit any data to any server, API, or third-party service. The application functions entirely offline once loaded in the browser. There is no analytics tracking, no telemetry, and no background data collection.</p>
+      <p><strong>Default (no sync):</strong> PMAS does not transmit any data to any server, API, or third-party service. The application functions entirely offline once loaded in the browser.</p>
+      <p><strong>Optional Account & Cloud Sync:</strong> if — and only if — the user enters a PMAS server address and creates an account, the app sends the account phone number, profile, medication plans, adherence records, symptom logs and appointments to that PMAS server, so the enrolled pharmacist can follow up between encounters. This is opt-in, initiated by the user, and can be ended at any time with Sign Out. When sync is enabled, the data is stored by the services listed in Section 9. There is no analytics tracking, no advertising, no telemetry, and no background data collection in either mode.</p>
 
       <h2>3. Research Data Export</h2>
       <p>The research export feature produces a de-identified data payload that contains:</p>
@@ -185,20 +186,27 @@
         <li>Understanding that the tool does not replace professional healthcare</li>
       </ul>
       <p>The consent record (timestamp, version, language, and checkbox states) is stored locally on the device.</p>
+      <p><strong>Adults only:</strong> PMAS accounts are intended for adults. Account creation asks the user to confirm they are 18 years of age or older (self-attested), consistent with the DPDP Act's requirement of verifiable parental consent for processing children's data. PMAS is not designed to process children's data.</p>
 
       <h2>6. Right to Erasure</h2>
       <p>Users can delete all data stored on the device at any time using the "Delete All My Data" button in the Profile tab. This permanently removes profile, medications, symptoms, appointments, adherence records, and consent from the device.</p>
       <p><strong>Important distinction:</strong> Deleting local data does not automatically withdraw the user from the research study, nor does it erase data that has already been exported and stored separately by the research team. To formally withdraw from the study, the participant must contact their research supervisor.</p>
 
       <h2>7. DPDP Act 2023 Alignment</h2>
-      <p>PMAS is designed in alignment with the principles of the Digital Personal Data Protection (DPDP) Act 2023, India. This includes local-only data storage, no server transmission, de-identified research export, granular consent, and right to erasure.</p>
+      <p>PMAS is designed in alignment with the principles of the Digital Personal Data Protection (DPDP) Act 2023, India. This includes offline-by-default data storage, opt-in-only cloud sync with clear disclosure, de-identified research export, granular consent, right to erasure, an adults-only account policy, and a grievance channel through the contact page.</p>
       <p><strong>This is a design alignment, not a legal compliance certification.</strong> Formal compliance assessment requires review of the study protocol, consent process, retention policy, and institutional ethics committee approval.</p>
 
       <h2>8. Browser Notifications</h2>
       <p>PMAS can request browser notification permission for medication reminders. If granted, notifications are generated locally by the browser — no push server is used. Notification permission can be revoked at any time through browser settings.</p>
 
       <h2>9. Third-Party Services</h2>
-      <p>PMAS does not use any third-party services, libraries, or APIs that transmit data externally. The application is entirely self-contained.</p>
+      <p>The application itself loads no external fonts, scripts or analytics. The services involved in hosting, and what each can see:</p>
+      <ul>
+        <li><strong>GitHub Pages</strong> — hosts this website and the patient app files. No patient data is sent to or stored by GitHub Pages.</li>
+        <li><strong>Render</strong> — hosts the PMAS backend application that receives synced data, <em>only</em> when a user opts in to cloud sync.</li>
+        <li><strong>Supabase (PostgreSQL)</strong> — stores synced account and health records in a database located in the Mumbai (ap-south-1) region, <em>only</em> when a user opts in to cloud sync.</li>
+      </ul>
+      <p>No other third party receives PMAS data. Data is not sold, rented, or shared for advertising or any commercial purpose.</p>
 
       <h2>10. Limitations</h2>
       <p>This is a research prototype, not a licensed medical device. The privacy protections described here are appropriate for a prototype but would need to be substantially strengthened for clinical deployment, including:</p>
@@ -210,9 +218,9 @@
       </ul>
 
       <h2>11. Contact</h2>
-      <p>For questions about privacy or data handling, please contact Kartik H through the <a href="contact.html">contact page</a>.</p>
+      <p>For questions about privacy or data handling — including any concern or grievance about your personal data, or a request to delete cloud-synced data — please contact Kartik H through the <a href="contact.html">contact page</a> or by email at kartik.h6822@gmail.com. Grievances are acknowledged and addressed on a best-effort basis.</p>
 
-      <p class="text-muted text-sm mt-4">Last updated: August 2025. This policy applies to PMAS.</p>
+      <p class="text-muted text-sm mt-4">Last updated: September 2026. This policy applies to PMAS.</p>
     </div>
   </section>
 </main>

@@ -100,7 +100,7 @@
       <p><strong data-i18n="consent_study">Study: Post-Counseling Medication Adherence Support (PMAS)</strong></p>
       <p data-i18n="consent_institution">Researcher: Kartik H — independent telepharmacy research project</p>
       <p data-i18n="consent_dept">Focus: Pharmacist-led counselling & adherence research</p>
-      <p data-i18n="consent_data_handling">Data Handling: Offline-first prototype with local-only data storage and no automatic server transmission. Research export removes all personal identifiers.</p>
+      <p data-i18n="consent_data_handling">Data Handling: Offline-first — your data stays on this device. Optional cloud sync (only if you connect a server) sends your profile, medications, adherence and symptoms to that PMAS server. Research export removes all personal identifiers.</p>
     </div>
 
     <p data-i18n="consent_intro">This tool is a research prototype for academic evaluation. It is not a licensed medical device and does not replace clinical advice.</p>
@@ -492,6 +492,10 @@
           </div>
         </div>
         <div class="field-row">
+          <label style="display:flex;gap:0.5rem;align-items:flex-start;font-size:0.78rem;color:var(--text);margin-top:0.75rem;cursor:pointer;">
+            <input type="checkbox" id="sync-age" style="margin-top:2px;accent-color:var(--indigo);">
+            <span data-i18n="sync_age">I confirm I am 18 years or older</span>
+          </label>
           <button class="btn btn-primary mt-1" onclick="syncLogin()" data-i18n="sync_sign_in">Sign In</button>
           <button class="btn btn-secondary mt-1" onclick="syncRegister()" data-i18n="sync_register">Create Account</button>
         </div>

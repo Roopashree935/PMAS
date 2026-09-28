@@ -11,6 +11,7 @@ All notable changes to PMAS are documented here. The project uses a single produ
 - Known limitation: the free-tier API sleeps after ~15 min idle — the first request takes ~30–60 s (the patient app remains fully usable offline).
 
 ### Security
+- **Privacy disclosure updated for optional cloud sync (DPDP-aligned)** — privacy page now accurately states offline-by-default with opt-in sync, names the hosting services involved (GitHub Pages, Render, Supabase Mumbai region), adds an adults-only (18+) account confirmation in all 5 languages, and a grievance channel via the contact page. Homepage/about/README claims updated to match.
 - **Self-registration is now patient-only.** The register endpoint no longer accepts a client-supplied role, closing a privilege-escalation path (previously anyone could POST `role: "pharmacist"` or `"admin"`).
 - New admin account-governance API — list users, create staff accounts, change roles, suspend/reactivate — administrator-only and audit-logged. Admins cannot change their own role or status.
 - First-run administrator bootstrap via `ADMIN_PHONE` / `ADMIN_PASSWORD` environment variables.

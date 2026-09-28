@@ -69,7 +69,7 @@ pmas-platform/
 
 - **Adherence Tracking** — One-tap Taken / Delayed / Missed for each scheduled dose
 - **Multilingual** — English, Telugu, Kannada, Tamil, Hindi (all patient-facing text)
-- **Offline-First** — All data in browser localStorage, no server transmission
+- **Offline-First** — All data in browser localStorage by default; optional opt-in cloud sync
 - **Safety Escalation** — Recommends professional evaluation, does not diagnose
 - **De-identified Export** — Study ID + Study Day instead of raw dates
 - **Patient Health Summary** — Printable report, separate from research export
