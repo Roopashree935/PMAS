@@ -9,6 +9,10 @@
 function recordDose(medId, slot, status) {
   const today = new Date().toISOString().split('T')[0];
   Adherence.record(medId, today, slot, status);
+  // Cloud sync: push the dose (and any other pending records) when signed in
+  if (typeof API !== 'undefined' && API.isAuthenticated()) {
+    API.syncPending().catch(() => {});
+  }
   showToast(tr('dose_recorded'));
   renderMedications();
   updateDashboard();

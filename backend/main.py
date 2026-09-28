@@ -4,13 +4,15 @@ Multilingual Transition-of-Care & Clinical Adherence Engine
 Dual-Vault architecture: Vault A (PII) | Vault B (Clinical & HEOR)
 """
 import os
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timezone, timedelta
 from uuid import uuid4, UUID
 from typing import List, Optional
 
-from fastapi import FastAPI, Depends, HTTPException, status, Query
+from fastapi import FastAPI, Depends, HTTPException, status, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select, func, and_
+from sqlalchemy.exc import IntegrityError
+from contextlib import asynccontextmanager
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db, Base, engine, async_session, User, UserRole, PatientProfile, MedicationPlan, AdherenceRecord, DoseStatus, SymptomTelemetry, Appointment, SecurityAuditTrail, StudyMetadata
@@ -22,19 +24,57 @@ from schemas import (
     SymptomLogCreate, SymptomLogResponse, SymptomResponse,
     AppointmentCreate, AppointmentResponse,
     PatientEnrollment, PharmacistDashboard,
-    AdminUserCreate, AdminUserUpdate, AdminUserResponse
+    AdminUserCreate, AdminUserUpdate, AdminUserResponse,
+    EnrollmentResponse, PasswordChange
 )
 from auth import (
     hash_password, verify_password, create_access_token,
-    get_current_user, require_role, require_pharmacist_or_admin, require_admin
+    get_current_user, require_pharmacist_or_admin, require_admin
 )
+
+from dotenv import load_dotenv
+load_dotenv()
+
+
+# ─── Lifespan: configuration guard + table creation ──────────
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    """Refuse to start with unsafe configuration, then create tables."""
+    if not os.getenv("JWT_SECRET"):
+        raise RuntimeError("JWT_SECRET is not set — refusing to start with an insecure default.")
+    cors_origins = [o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()]
+    if not cors_origins:
+        raise RuntimeError("CORS_ORIGINS must be set to an explicit origin allow-list.")
+    if "*" in cors_origins:
+        raise RuntimeError("CORS_ORIGINS must not contain '*' (wildcard origins are unsafe with credentials).")
+
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+    # First-run admin bootstrap: if no admin account exists and credentials
+    # are provided via environment, create the initial administrator.
+    admin_phone = os.getenv("ADMIN_PHONE")
+    admin_password = os.getenv("ADMIN_PASSWORD")
+    if admin_phone and admin_password:
+        async with async_session() as db:
+            result = await db.execute(select(User).where(User.role == UserRole.admin))
+            if not result.scalars().first():
+                db.add(User(
+                    phone_number=admin_phone,
+                    password_hash=hash_password(admin_password),
+                    role=UserRole.admin
+                ))
+                await db.commit()
+    yield
+
 
 app = FastAPI(
     title="PMAS API",
-    description="Multilingual Transition-of-Care & Clinical Adherence Engine",
-    version="2.0.0",
+    description="Pharmacist-led Medication & Adherence Support — patient app, cloud sync and governance API.",
+    version="1.1.0",
     docs_url="/docs",
-    redoc_url="/redoc"
+    redoc_url="/redoc",
+    lifespan=lifespan
 )
 
 # ─── CORS ────────────────────────────────────────────────────
@@ -53,29 +93,8 @@ app.add_middleware(
 
 @app.get("/api/v1/health")
 async def health_check():
-    return {"status": "ACTIVE", "system": "PMAS Cloud Core", "dpdp_compliant": True}
+    return {"status": "ACTIVE", "system": "PMAS Cloud Core", "privacy_posture": "dpdp_aligned_design"}
 
-
-@app.on_event("startup")
-async def startup():
-    """Create tables on startup (for development; use migrations in production)."""
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-
-    # First-run admin bootstrap: if no admin account exists and credentials
-    # are provided via environment, create the initial administrator.
-    admin_phone = os.getenv("ADMIN_PHONE")
-    admin_password = os.getenv("ADMIN_PASSWORD")
-    if admin_phone and admin_password:
-        async with async_session() as db:
-            result = await db.execute(select(User).where(User.role == UserRole.admin))
-            if not result.scalars().first():
-                db.add(User(
-                    phone_number=admin_phone,
-                    password_hash=hash_password(admin_password),
-                    role=UserRole.admin
-                ))
-                await db.commit()
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -83,7 +102,7 @@ async def startup():
 # ═══════════════════════════════════════════════════════════════
 
 @app.post("/api/v1/auth/register", response_model=TokenResponse)
-async def register(user_data: UserRegister, db: AsyncSession = Depends(get_db)):
+async def register(user_data: UserRegister, request: Request, db: AsyncSession = Depends(get_db)):
     """Register a new patient account.
 
     Self-registration is patient-only; the role field is not accepted.
@@ -100,7 +119,10 @@ async def register(user_data: UserRegister, db: AsyncSession = Depends(get_db)):
         preferred_language=user_data.preferred_language
     )
     db.add(user)
-    await db.flush()
+    try:
+        await db.flush()
+    except IntegrityError:
+        raise HTTPException(status_code=409, detail="Phone number already registered")
 
     # Assign Study ID for patients
     if user.role == UserRole.patient:
@@ -112,29 +134,66 @@ async def register(user_data: UserRegister, db: AsyncSession = Depends(get_db)):
         db.add(study_meta)
 
     # Audit
-    db.add(SecurityAuditTrail(performed_by=user.id, action="REGISTER", target_resource="users"))
+    db.add(SecurityAuditTrail(performed_by=user.id, action="REGISTER", target_resource="users", ip_address=request.client.host if request.client else None))
 
     token = create_access_token(user.id, user.role.value)
     return TokenResponse(access_token=token, role=user.role.value, user_id=str(user.id))
 
 
+# ─── Login throttling (in-process, per phone; reset on success) ──
+_failed_logins: dict = {}
+LOGIN_MAX_FAILURES = 5
+LOGIN_LOCKOUT_MINUTES = 15
+
+
+def _register_failed_login(phone: str):
+    entry = _failed_logins.get(phone, {"count": 0, "locked_until": None})
+    entry["count"] += 1
+    if entry["count"] >= LOGIN_MAX_FAILURES:
+        entry["locked_until"] = datetime.now(timezone.utc) + timedelta(minutes=LOGIN_LOCKOUT_MINUTES)
+        entry["count"] = 0
+    _failed_logins[phone] = entry
+
+
 @app.post("/api/v1/auth/login", response_model=TokenResponse)
-async def login(credentials: UserLogin, db: AsyncSession = Depends(get_db)):
-    """Login with phone number and password."""
-    result = await db.execute(select(User).where(User.phone_number == credentials.phone_number))
+async def login(credentials: UserLogin, request: Request, db: AsyncSession = Depends(get_db)):
+    """Login with phone number and password. Locks out after repeated failures."""
+    phone = credentials.phone_number
+    entry = _failed_logins.get(phone)
+    if entry and entry["locked_until"] and datetime.now(timezone.utc) < entry["locked_until"]:
+        raise HTTPException(status_code=429, detail="Too many failed attempts. Try again later.")
+
+    result = await db.execute(select(User).where(User.phone_number == phone))
     user = result.scalar_one_or_none()
 
     if not user or not verify_password(credentials.password, user.password_hash):
+        _register_failed_login(phone)
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Account deactivated")
 
+    _failed_logins.pop(phone, None)
+
     # Audit
-    db.add(SecurityAuditTrail(performed_by=user.id, action="LOGIN", target_resource="auth"))
+    db.add(SecurityAuditTrail(performed_by=user.id, action="LOGIN", target_resource="auth", ip_address=request.client.host if request.client else None))
 
     token = create_access_token(user.id, user.role.value)
     return TokenResponse(access_token=token, role=user.role.value, user_id=str(user.id))
+
+
+@app.post("/api/v1/auth/change-password")
+async def change_password(
+    data: PasswordChange,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Change the current user's password (enrolled patients use this on first login)."""
+    if not verify_password(data.current_password, user.password_hash):
+        raise HTTPException(status_code=401, detail="Current password is incorrect")
+    user.password_hash = hash_password(data.new_password)
+    db.add(SecurityAuditTrail(performed_by=user.id, action="PASSWORD_CHANGE", target_resource="auth"))
+    return {"status": "changed"}
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -147,7 +206,9 @@ async def create_profile(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Create or update patient profile."""
+    """Create or update the patient profile (patient accounts only)."""
+    if user.role != UserRole.patient:
+        raise HTTPException(status_code=403, detail="Only patient accounts may hold a patient profile")
     existing = await db.execute(select(PatientProfile).where(PatientProfile.user_id == user.id))
     profile = existing.scalar_one_or_none()
 
@@ -240,6 +301,20 @@ async def record_adherence(
     db: AsyncSession = Depends(get_db)
 ):
     """Record a dose as taken, delayed, or missed."""
+    # The medication must belong to the authenticated patient
+    med_result = await db.execute(
+        select(MedicationPlan).where(
+            MedicationPlan.id == record_data.medication_id,
+            MedicationPlan.patient_id == user.id
+        )
+    )
+    if not med_result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Medication not found")
+
+    # Dose date may not be more than one day in the future (timezone tolerance)
+    if record_data.dose_date > date.today() + timedelta(days=1):
+        raise HTTPException(status_code=422, detail="Dose date cannot be in the future")
+
     # Check if already exists (upsert)
     existing = await db.execute(
         select(AdherenceRecord).where(
@@ -316,7 +391,7 @@ async def get_weekly_adherence(
 ):
     """Get weekly adherence summary (last 7 days)."""
     today = date.today()
-    start = today.replace(day=today.day - 6) if today.day > 6 else today
+    start = today - timedelta(days=6)
 
     meds_result = await db.execute(
         select(MedicationPlan).where(MedicationPlan.patient_id == user.id)
@@ -327,7 +402,7 @@ async def get_weekly_adherence(
     total_taken = 0
 
     for i in range(7):
-        d = today.replace(day=today.day - i)
+        d = today - timedelta(days=i)
         active_meds = [m for m in meds if m.start_date <= d and m.end_date >= d]
         for m in active_meds:
             if m.frequency_morning: total_scheduled += 1
@@ -442,13 +517,20 @@ async def get_appointments(
 # PHARMACIST PORTAL — Patient Enrollment & Management
 # ═══════════════════════════════════════════════════════════════
 
-@app.post("/api/v1/pharmacist/enroll", response_model=TokenResponse)
+@app.post("/api/v1/pharmacist/enroll", response_model=EnrollmentResponse)
 async def enroll_patient(
     enrollment: PatientEnrollment,
+    request: Request,
     pharmacist: User = Depends(require_pharmacist_or_admin),
     db: AsyncSession = Depends(get_db)
 ):
-    """Pharmacist enrolls a new patient — creates account and profile."""
+    """Pharmacist enrolls a new patient — creates account and profile.
+
+    Returns a one-time temporary password that the pharmacist must relay to
+    the patient; the patient changes it at first login. Consent is NOT granted
+    here: the patient consents on their own device (PRD v1.1 §4A) and the
+    patient app attests the consent record when it first syncs.
+    """
     existing = await db.execute(select(User).where(User.phone_number == enrollment.phone_number))
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=409, detail="Patient already enrolled")
@@ -476,7 +558,7 @@ async def enroll_patient(
         chronic_conditions=enrollment.chronic_conditions,
         consent_timestamp=datetime.now(timezone.utc),
         consent_version="1.0",
-        consent_status=True
+        consent_status=False  # pending: patient consents on-device (§4A) and attests on first sync
     )
     db.add(profile)
 
@@ -490,19 +572,37 @@ async def enroll_patient(
     db.add(SecurityAuditTrail(
         performed_by=pharmacist.id,
         action="PATIENT_ENROLLED",
-        target_resource="users"
+        target_resource=f"users:{user.id}",
+        ip_address=request.client.host if request.client else None
     ))
 
     token = create_access_token(user.id, user.role.value)
-    return TokenResponse(access_token=token, role=user.role.value, user_id=str(user.id))
+    return EnrollmentResponse(
+        access_token=token,
+        role=user.role.value,
+        user_id=str(user.id),
+        temp_password=temp_password
+    )
 
 
 @app.get("/api/v1/pharmacist/dashboard", response_model=PharmacistDashboard)
 async def pharmacist_dashboard(
+    request: Request,
     pharmacist: User = Depends(require_pharmacist_or_admin),
     db: AsyncSession = Depends(get_db)
 ):
-    """Get dashboard stats for pharmacist."""
+    """Get dashboard stats for pharmacist. Every access is audit-logged.
+
+    NOTE (audit 2026-09-28): stats are currently GLOBAL. Per-pharmacist scoping
+    on `patient_profiles.enrolled_by` is staged for the next release and
+    requires a one-time database migration first (see migrations/002).
+    """
+    db.add(SecurityAuditTrail(
+        performed_by=pharmacist.id,
+        action="DASHBOARD_VIEW",
+        target_resource="pharmacist_dashboard",
+        ip_address=request.client.host if request.client else None
+    ))
     total_patients = await db.scalar(
         select(func.count(User.id)).where(User.role == UserRole.patient)
     )
@@ -525,8 +625,9 @@ async def pharmacist_dashboard(
     )
 
     recent_patients_result = await db.execute(
-        select(PatientProfile, User)
+        select(PatientProfile, User, StudyMetadata)
         .join(User, PatientProfile.user_id == User.id)
+        .outerjoin(StudyMetadata, StudyMetadata.user_id == User.id)
         .where(User.role == UserRole.patient)
         .order_by(PatientProfile.created_at.desc())
         .limit(10)
@@ -535,9 +636,9 @@ async def pharmacist_dashboard(
         {
             "name": p.full_name,
             "phone": u.phone_number,
-            "study_id": None  # Would need join with StudyMetadata
+            "study_id": s_.study_id if s_ else None
         }
-        for p, u in recent_patients_result
+        for p, u, s_ in recent_patients_result
     ]
 
     return PharmacistDashboard(
@@ -555,10 +656,11 @@ async def pharmacist_dashboard(
 
 @app.get("/api/v1/research/export")
 async def research_export(
+    request: Request,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Generate a de-identified research export for HEOR analysis."""
+    """Generate a de-identified research export for HEOR analysis (self-scoped, audit-logged)."""
     study_meta = await db.execute(
         select(StudyMetadata).where(StudyMetadata.user_id == user.id)
     )
@@ -566,6 +668,13 @@ async def research_export(
 
     if not study:
         raise HTTPException(status_code=404, detail="Study metadata not found")
+
+    db.add(SecurityAuditTrail(
+        performed_by=user.id,
+        action="RESEARCH_EXPORT",
+        target_resource=f"study:{study.study_id}",
+        ip_address=request.client.host if request.client else None
+    ))
 
     study_day = (date.today() - study.baseline_date).days if study.baseline_date else 0
 

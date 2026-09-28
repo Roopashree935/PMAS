@@ -88,18 +88,6 @@ async def get_current_user(
     return user
 
 
-async def require_role(role: UserRole):
-    """Dependency factory: require a specific role."""
-    async def role_checker(user: User = Depends(get_current_user)) -> User:
-        if user.role != role and user.role != UserRole.admin:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Access denied. Required role: {role.value}"
-            )
-        return user
-    return role_checker
-
-
 async def require_pharmacist_or_admin(
     user: User = Depends(get_current_user)
 ) -> User:

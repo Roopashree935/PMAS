@@ -3,7 +3,7 @@
    PWA offline capability for the platform site itself.
    Caches app shell and serves from cache when offline.
    ═══════════════════════════════════════════════════════════════ */
-const CACHE_NAME = 'pmas-platform_v4';
+const CACHE_NAME = 'pmas-platform_v5';
 const APP_SHELL = [
   './',
   './/index.html',

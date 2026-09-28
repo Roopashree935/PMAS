@@ -254,8 +254,10 @@ tr:hover td{background:var(--surface2)}
 
 <script>
 // ─── Config ──────────────────────────────────────────────────
-const API_BASE = localStorage.getItem('pmas_api_url') || prompt('Enter PMAS API URL:', 'http://localhost:8000');
-localStorage.setItem('pmas_api_url', API_BASE);
+// Portal storage key is deliberately separate from the patient app's
+// 'pmas_api_url' so the two never overwrite each other on the same origin.
+const API_BASE = localStorage.getItem('pmas_portal_api_url') || prompt('Enter PMAS API URL:', 'https://pmas-bkwu.onrender.com');
+localStorage.setItem('pmas_portal_api_url', API_BASE);
 
 let token = localStorage.getItem('pmas_pharmacist_token');
 let userRole = localStorage.getItem('pmas_user_role');
@@ -336,8 +338,10 @@ async function loadDashboard() {
     if (data.recent_patients.length === 0) {
       tbody.innerHTML = '<tr><td colspan="4" class="text-muted text-center">No patients enrolled yet</td></tr>';
     } else {
+      // Escape all patient-supplied values before rendering (XSS safety)
+      const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
       tbody.innerHTML = data.recent_patients.map(p => 
-        `<tr><td>${p.name}</td><td>${p.phone}</td><td><span class="badge badge-teal">Active</span></td><td><button class="btn btn-ghost" style="padding:0.3rem 0.7rem;font-size:0.75rem" onclick="viewPatient('${p.phone}')">View</button></td></tr>`
+        `<tr><td>${esc(p.name)}</td><td>${esc(p.phone)}</td><td><span class="badge badge-teal">Active</span></td><td><button class="btn btn-ghost" style="padding:0.3rem 0.7rem;font-size:0.75rem" onclick="viewPatient('${esc(p.phone)}')">View</button></td></tr>`
       ).join('');
     }
   } catch (err) {
@@ -363,7 +367,9 @@ async function enrollPatient(e) {
         chronic_conditions: document.getElementById('enr-chronic').value || null
       }
     });
-    showToast('Patient enrolled successfully ✓');
+    const pw = data.temp_password;
+    const copied = confirm('Patient enrolled ✓\n\nOne-time temporary password:\n\n    ' + pw + '\n\nShare it with the patient securely and ask them to change it at first login (patient app → Account & Cloud Sync → Change Password).\n\nPress OK to copy the password to your clipboard — it will not be shown again.');
+    if (copied) { try { navigator.clipboard.writeText(pw); } catch (e) {} }
     document.querySelector('#tab-enroll form').reset();
     switchTab('patients', document.querySelector('.tab-btn'));
     await loadDashboard();

@@ -499,6 +499,13 @@
           <button class="btn btn-primary mt-1" onclick="syncLogin()" data-i18n="sync_sign_in">Sign In</button>
           <button class="btn btn-secondary mt-1" onclick="syncRegister()" data-i18n="sync_register">Create Account</button>
         </div>
+        <div id="sync-pw-wrap" class="hidden" style="margin-top:0.75rem;">
+          <label class="field-label" for="sync-old-pw" data-i18n="sync_old_pw">Current password</label>
+          <input type="password" id="sync-old-pw" autocomplete="current-password">
+          <label class="field-label" for="sync-new-pw" data-i18n="sync_new_pw">New password</label>
+          <input type="password" id="sync-new-pw" autocomplete="new-password">
+          <button class="btn btn-secondary mt-1" onclick="syncChangePassword()" data-i18n="sync_change_pw">Change Password</button>
+        </div>
         <p class="text-muted" id="sync-status" style="font-size:0.78rem;margin:0.5rem 0 0;" data-i18n="sync_offline">
           Offline mode — data stays on this device
         </p>

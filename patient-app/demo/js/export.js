@@ -289,7 +289,7 @@ function generatePatientReport() {
   emergSection.appendChild(emergH2);
   const emergP = document.createElement('p');
   emergP.style.cssText = 'font-size:0.9rem;line-height:1.7;';
-  emergP.innerHTML = (prof.emerg_name || '—') + '<br>' + (prof.emerg_rel || '') + '<br>' + (prof.emerg_phone || '—');
+  emergP.innerHTML = escapeHtml(prof.emerg_name || '—') + '<br>' + escapeHtml(prof.emerg_rel || '') + '<br>' + escapeHtml(prof.emerg_phone || '—');
   emergSection.appendChild(emergP);
   report.appendChild(emergSection);
 

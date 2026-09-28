@@ -2,8 +2,8 @@
 PMAS — Pydantic Schemas (Data Contracts)
 Request/response validation for all API endpoints.
 """
-from pydantic import BaseModel, Field
-from typing import Optional, List
+from pydantic import BaseModel, Field, model_validator
+from typing import Optional, List, Union
 from datetime import date, datetime
 from uuid import UUID
 
@@ -14,7 +14,7 @@ class UserRegister(BaseModel):
     """Self-registration is patient-only. Staff (pharmacist/admin) accounts
     are created by an administrator via the admin endpoints."""
     phone_number: str = Field(..., pattern=r"^(\+91\d{10}|\d{10})$")
-    password: str = Field(..., min_length=6, max_length=100)
+    password: str = Field(..., min_length=8, max_length=100)
     preferred_language: str = Field(default="en", max_length=10)
 
 
@@ -28,6 +28,17 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
     role: str
     user_id: str
+
+
+class EnrollmentResponse(TokenResponse):
+    """Enrollment result — includes the one-time temporary password the
+    pharmacist relays to the patient (changed by the patient at first login)."""
+    temp_password: str
+
+
+class PasswordChange(BaseModel):
+    current_password: str
+    new_password: str = Field(..., min_length=8, max_length=100)
 
 
 # ─── Admin Schemas (account governance) ────────────────────
@@ -60,14 +71,15 @@ class PatientProfileCreate(BaseModel):
     hospital_mrn: Optional[str] = Field(None, max_length=50)
     emergency_contact_name: Optional[str] = Field(None, max_length=100)
     emergency_contact_phone: Optional[str] = Field(None, pattern=r"^(\+91\d{10}|\d{10})$")
-    date_of_birth: Optional[date]
-    gender: Optional[str]
-    blood_group: Optional[str]
-    known_allergies: Optional[str]
-    chronic_conditions: Optional[str]
+    date_of_birth: Optional[date] = None
+    gender: Optional[str] = Field(None, max_length=20)
+    blood_group: Optional[str] = Field(None, max_length=5)
+    known_allergies: Optional[str] = None
+    chronic_conditions: Optional[str] = None
     consent_timestamp: datetime
     consent_version: str = "1.0"
-    consent_checks: Optional[dict]
+    consent_checks: Optional[Union[dict, list]] = None  # app sends the six checkbox states as an array
+    consent_status: bool = False
 
 
 class PatientProfileResponse(BaseModel):
@@ -94,12 +106,20 @@ class MedicationPlanCreate(BaseModel):
     frequency_morning: bool = False
     frequency_afternoon: bool = False
     frequency_night: bool = False
-    morning_time: Optional[str] = None
-    afternoon_time: Optional[str] = None
-    night_time: Optional[str] = None
+    morning_time: Optional[str] = Field(None, pattern=r"^\d{2}:\d{2}$")
+    afternoon_time: Optional[str] = Field(None, pattern=r"^\d{2}:\d{2}$")
+    night_time: Optional[str] = Field(None, pattern=r"^\d{2}:\d{2}$")
     start_date: date
     end_date: date
     instructions_localized: Optional[str] = None
+
+    @model_validator(mode="after")
+    def check_plan(self):
+        if self.end_date < self.start_date:
+            raise ValueError("end_date must be on or after start_date")
+        if not (self.frequency_morning or self.frequency_afternoon or self.frequency_night):
+            raise ValueError("At least one dose slot (morning/afternoon/night) must be selected")
+        return self
 
 
 class MedicationPlanResponse(BaseModel):
@@ -187,7 +207,7 @@ class SymptomResponse(BaseModel):
 
 class AppointmentCreate(BaseModel):
     appointment_date: date
-    appointment_time: str
+    appointment_time: str = Field(..., pattern=r"^\d{2}:\d{2}$")
     doctor_name: str = Field(..., max_length=150)
     department: Optional[str] = Field(None, max_length=100)
     notes: Optional[str] = None

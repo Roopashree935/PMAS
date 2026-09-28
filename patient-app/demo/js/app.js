@@ -310,6 +310,11 @@ function saveProfile(e) {
     emerg_rel:   el('prof-emerg-rel').value.trim(),
     emerg_phone: phoneClean
   });
+  // Cloud sync: re-attest the profile (incl. consent record) when signed in
+  if (typeof API !== 'undefined' && API.isAuthenticated()) {
+    localStorage.removeItem('pmas_consent_synced');
+    API.syncPending().catch(() => {});
+  }
   updateDashboard();
   showToast(tr('profile_saved'));
 }
@@ -351,6 +356,10 @@ function saveMedication(e) {
     notes:          el('med-notes').value.trim()
   });
   DB.set('medications', meds);
+  // Cloud sync: map the new medication to a server record when signed in
+  if (typeof API !== 'undefined' && API.isAuthenticated()) {
+    API.syncPending().catch(() => {});
+  }
   el('med-form').reset();
   ['med-morn-time','med-aft-time','med-ngt-time'].forEach(id => { el(id).disabled = true; });
   el('med-form-wrap').classList.add('hidden');
@@ -465,6 +474,10 @@ function saveSymptom(e) {
     notes:        el('sym-notes').value.trim()
   });
   DB.set('symptoms', syms);
+  // Cloud sync: push the new entry when signed in
+  if (typeof API !== 'undefined' && API.isAuthenticated()) {
+    API.syncPending().catch(() => {});
+  }
 
   // ═══ REDESIGNED: Safety escalation, NOT diagnosis ═══
   // A single high reading doesn't automatically mean "emergency."
@@ -644,8 +657,8 @@ function renderAppts() {
   container.textContent = '';
   // ═══ FIXED: Sort by date + time, not just date ═══
   const appts = (DB.get('appointments') || []).slice().sort((a, b) => {
-    const aKey = b.date + (b.time || '00:00');
-    const bKey = a.date + (a.time || '00:00');
+    const aKey = a.date + (a.time || '00:00');
+    const bKey = b.date + (b.time || '00:00');
     return aKey.localeCompare(bKey);
   });
   if (appts.length === 0) {
@@ -707,6 +720,10 @@ function dismissSafetyAlert() {
 /* ── DPDP Right to Erasure ──────────────────────────────── */
 function deleteAllData() {
   if (!confirm(tr('erase_confirm'))) return;
+  // Erase cloud-sync credentials and state too, so erasure is complete on this
+  // device (the server-side account is deleted on request via the contact page).
+  if (typeof API !== 'undefined') API.logout();
+  localStorage.removeItem('pmas_consent_synced');
   DB.clearAll();
   window.location.reload();
 }
@@ -716,14 +733,17 @@ function updateSyncStatus() {
   const statusEl = el('sync-status');
   const logoutBtn = el('btn-sync-logout');
   if (!statusEl) return;
+  const pwWrap = el('sync-pw-wrap');
   if (API.isAuthenticated()) {
     statusEl.removeAttribute('data-i18n');
     statusEl.textContent = tr('sync_signed_in');
     if (logoutBtn) logoutBtn.classList.remove('hidden');
+    if (pwWrap) pwWrap.classList.remove('hidden');
   } else {
     statusEl.setAttribute('data-i18n', 'sync_offline');
     statusEl.textContent = tr('sync_offline');
     if (logoutBtn) logoutBtn.classList.add('hidden');
+    if (pwWrap) pwWrap.classList.add('hidden');
   }
 }
 
@@ -740,9 +760,14 @@ async function syncLogin() {
     API.init(baseUrl);
     await API.login(phone, password);
     el('sync-pass').value = '';
-    await API.syncPending();
+    const res = await API.syncPending();
     updateSyncStatus();
-    showToast(tr('sync_signed_in'));
+    if (res && res.failed > 0) {
+      showToast(tr('sync_signed_in'));
+      setTimeout(() => showToast(tr('sync_sync_failed') + ' (' + res.failed + ')'), 2600);
+    } else {
+      showToast(tr('sync_signed_in'));
+    }
   } catch (e) {
     showToast(tr('sync_error') + ' ' + (e.message || ''));
   }
@@ -767,9 +792,14 @@ async function syncRegister() {
     const consent = DB.get('consent');
     await API.register(phone, password, (consent && consent.language) || 'en');
     el('sync-pass').value = '';
-    await API.syncPending();
+    const res = await API.syncPending();
     updateSyncStatus();
-    showToast(tr('sync_signed_in'));
+    if (res && res.failed > 0) {
+      showToast(tr('sync_signed_in'));
+      setTimeout(() => showToast(tr('sync_sync_failed') + ' (' + res.failed + ')'), 2600);
+    } else {
+      showToast(tr('sync_signed_in'));
+    }
   } catch (e) {
     showToast(tr('sync_error') + ' ' + (e.message || ''));
   }
@@ -779,6 +809,21 @@ function syncLogout() {
   API.logout();
   updateSyncStatus();
   showToast(tr('sync_offline'));
+}
+
+async function syncChangePassword() {
+  const oldPw = el('sync-old-pw').value;
+  const newPw = el('sync-new-pw').value;
+  if (!oldPw || !newPw) { showToast(tr('sync_fill_fields')); return; }
+  if (newPw.length < 8) { showToast(tr('sync_pw_min')); return; }
+  try {
+    await API.changePassword(oldPw, newPw);
+    el('sync-old-pw').value = '';
+    el('sync-new-pw').value = '';
+    showToast(tr('sync_pw_changed'));
+  } catch (e) {
+    showToast(tr('sync_error') + ' ' + (e.message || ''));
+  }
 }
 
 /* ── Initialise ──────────────────────────────────────────── */

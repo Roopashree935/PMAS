@@ -1,7 +1,8 @@
 /* ═══════════════════════════════════════════════════════════════
    PMAS — Database Layer (localStorage wrapper)
-   Offline-first prototype. Data stays on device only.
-   No server transmission. Not encrypted storage.
+   Offline-first: data lives on the device by default. The optional
+   Account & Cloud Sync (api.js) sends selected records only to the
+   PMAS server the user connects to. Not encrypted storage.
    ═══════════════════════════════════════════════════════════════ */
 
 /* ── Safe localStorage wrapper ───────────────────────────── */

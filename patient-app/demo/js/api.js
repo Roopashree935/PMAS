@@ -59,6 +59,14 @@ const API = {
   logout() {
     this.token = null;
     localStorage.removeItem('pmas_auth_token');
+    localStorage.removeItem('pmas_consent_synced');
+  },
+
+  async changePassword(currentPassword, newPassword) {
+    return this._fetch('/api/v1/auth/change-password', {
+      method: 'POST',
+      body: { current_password: currentPassword, new_password: newPassword }
+    });
   },
 
   /* ── Profile ───────────────────────────────────────────── */
@@ -184,32 +192,117 @@ const API = {
 
   /* ── Sync pending data when back online ────────────────── */
 
-  async syncPending() {
-    if (!this.token) return;
-    console.log('PMAS: Syncing pending data...');
+  /* Map local medication records to server IDs, creating each medication on
+     the server on first sync. Returns true when every medication is mapped. */
+  async _ensureMedicationsSynced() {
+    const meds = JSON.parse(localStorage.getItem('pmas_medications') || '[]');
+    let allOk = true;
+    for (const med of meds) {
+      if (med.server_id) continue;
+      try {
+        const res = await this._fetch('/api/v1/medications', {
+          method: 'POST',
+          body: {
+            medicine_name: med.name,
+            dosage: med.dose,
+            frequency_morning: !!med.morning,
+            frequency_afternoon: !!med.afternoon,
+            frequency_night: !!med.night,
+            morning_time: med.morning ? (med.morning_time || null) : null,
+            afternoon_time: med.afternoon ? (med.afternoon_time || null) : null,
+            night_time: med.night ? (med.night_time || null) : null,
+            start_date: med.start_date,
+            end_date: med.end_date,
+            instructions_localized: med.notes || null
+          }
+        });
+        med.server_id = res.id;
+      } catch (e) {
+        // The medication may already exist server-side (e.g. local storage was
+        // cleared while the server copy remains). Match by name + dose.
+        try {
+          const serverMeds = await this._fetch('/api/v1/medications', { method: 'GET' });
+          const match = serverMeds.find(m => m.medicine_name === med.name && m.dosage === med.dose);
+          if (match) { med.server_id = match.id; }
+          else { allOk = false; }
+        } catch (e2) { allOk = false; }
+      }
+    }
+    localStorage.setItem('pmas_medications', JSON.stringify(meds));
+    return allOk;
+  },
 
-    // Sync adherence records
+  /* Push the local profile + the on-device consent record to the server (§4A:
+     the patient consents on their own device; the app attests it on sync). */
+  async _syncProfileAndConsent() {
+    if (localStorage.getItem('pmas_consent_synced') === 'true') return true;
+    const profile = JSON.parse(localStorage.getItem('pmas_profile') || 'null');
+    const consent = JSON.parse(localStorage.getItem('pmas_consent') || 'null');
+    if (!profile || !consent) return true; // nothing to attest yet
+    try {
+      await this._fetch('/api/v1/profile', {
+        method: 'POST',
+        body: {
+          full_name: profile.name,
+          date_of_birth: profile.dob || null,
+          gender: profile.gender || null,
+          blood_group: profile.blood || null,
+          known_allergies: profile.allergy || null,
+          chronic_conditions: profile.chronic || null,
+          emergency_contact_name: profile.emerg_name || null,
+          emergency_contact_phone: profile.emerg_phone || null,
+          consent_timestamp: consent.timestamp,
+          consent_version: consent.version || '1.0',
+          consent_checks: consent.checks || null,
+          consent_status: true
+        }
+      });
+      localStorage.setItem('pmas_consent_synced', 'true');
+      return true;
+    } catch (e) { return false; }
+  },
+
+  async syncPending() {
+    if (!this.token) return { failed: 0 };
+    console.log('PMAS: Syncing pending data...');
+    let failed = 0;
+
+    // 1. Profile + consent (pushed once per profile change)
+    if (!await this._syncProfileAndConsent()) failed++;
+
+    // 2. Medications — must map to server IDs before adherence can sync
+    const medsOk = await this._ensureMedicationsSynced();
+    const medMap = {};
+    JSON.parse(localStorage.getItem('pmas_medications') || '[]').forEach(m => { if (m.server_id) medMap[m.id] = m.server_id; });
+
+    // 3. Adherence — only records never synced (or whose status changed)
     const adhRecords = JSON.parse(localStorage.getItem('pmas_adherence') || '[]');
     for (const record of adhRecords) {
+      if (record.synced_status === record.status) continue;
+      const serverMedId = medMap[record.med_id];
+      if (!serverMedId) { if (medsOk) failed++; continue; }
       try {
         await this._fetch('/api/v1/adherence', {
           method: 'POST',
           body: {
-            medication_id: record.med_id,
+            medication_id: serverMedId,
             dose_date: record.date,
             dose_slot: record.slot,
             status: record.status
           }
         });
+        record.synced_status = record.status;
       } catch (e) {
-        console.warn('Sync failed for record:', e);
+        failed++;
         break; // Stop if server is unreachable
       }
     }
+    localStorage.setItem('pmas_adherence', JSON.stringify(adhRecords));
 
-    // Sync symptom records
+    // 4. Symptoms — only records not yet synced (prevents duplicate server rows)
     const symRecords = JSON.parse(localStorage.getItem('pmas_symptoms') || '[]');
     for (const sym of symRecords) {
+      if (sym.synced) continue;
       try {
         await this._fetch('/api/v1/telemetry/symptom', {
           method: 'POST',
@@ -225,12 +318,16 @@ const API = {
             additional_notes: sym.notes || null
           }
         });
+        sym.synced = true;
       } catch (e) {
+        failed++;
         break;
       }
     }
+    localStorage.setItem('pmas_symptoms', JSON.stringify(symRecords));
 
-    console.log('PMAS: Sync complete');
+    console.log('PMAS: Sync complete — failed:', failed);
+    return { failed };
   },
 
   /* ── Internal fetch wrapper ────────────────────────────── */
