@@ -3,7 +3,7 @@
    PWA offline capability for the platform site itself.
    Caches app shell and serves from cache when offline.
    ═══════════════════════════════════════════════════════════════ */
-const CACHE_NAME = 'pmas-platform_v3';
+const CACHE_NAME = 'pmas-platform_v4';
 const APP_SHELL = [
   './',
   './/index.html',
@@ -44,7 +44,7 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-/* ── Fetch: cache-first for app shell, network-first for rest */
+/* ── Fetch: cache-first for app shell, network-first for rest ─ */
 self.addEventListener('fetch', (event) => {
   // Skip non-GET requests
   if (event.request.method !== 'GET') return;
