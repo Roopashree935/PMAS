@@ -47,7 +47,7 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
-    profile = relationship("PatientProfile", back_populates="user", uselist=False)
+    profile = relationship("PatientProfile", back_populates="user", uselist=False, foreign_keys="PatientProfile.user_id")
     medications = relationship("MedicationPlan", back_populates="patient", foreign_keys="MedicationPlan.patient_id")
 
 
@@ -68,9 +68,13 @@ class PatientProfile(Base):
     consent_version = Column(String(20), nullable=False)
     consent_checks = Column(JSONB)
     consent_status = Column(Boolean, default=True)
+    # The pharmacist who enrolled this patient (NULL for self-registered
+    # patients and legacy rows enrolled before this column existed)
+    enrolled_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
-    user = relationship("User", back_populates="profile")
+    # foreign_keys is required now that two FKs point at users.id
+    user = relationship("User", back_populates="profile", foreign_keys=[user_id])
 
 
 # ─── VAULT B: CLINICAL & TELEMETRY ──────────────────────────

@@ -558,7 +558,8 @@ async def enroll_patient(
         chronic_conditions=enrollment.chronic_conditions,
         consent_timestamp=datetime.now(timezone.utc),
         consent_version="1.0",
-        consent_status=False  # pending: patient consents on-device (§4A) and attests on first sync
+        consent_status=False,  # pending: patient consents on-device (§4A) and attests on first sync
+        enrolled_by=pharmacist.id
     )
     db.add(profile)
 
@@ -591,11 +592,12 @@ async def pharmacist_dashboard(
     pharmacist: User = Depends(require_pharmacist_or_admin),
     db: AsyncSession = Depends(get_db)
 ):
-    """Get dashboard stats for pharmacist. Every access is audit-logged.
-
-    NOTE (audit 2026-09-28): stats are currently GLOBAL. Per-pharmacist scoping
-    on `patient_profiles.enrolled_by` is staged for the next release and
-    requires a one-time database migration first (see migrations/002).
+    """Get dashboard stats, scoped to patients this pharmacist personally
+    enrolled (permission matrix: a pharmacist sees only their own patients).
+    Every access is audit-logged. Admin callers likewise see only patients
+    they enrolled themselves — admin is a governance role, not a clinical
+    superuser. Self-registered patients are not visible to any pharmacist
+    until enrolled.
     """
     db.add(SecurityAuditTrail(
         performed_by=pharmacist.id,
@@ -603,17 +605,29 @@ async def pharmacist_dashboard(
         target_resource="pharmacist_dashboard",
         ip_address=request.client.host if request.client else None
     ))
+    my_patient_ids = select(PatientProfile.user_id).where(
+        PatientProfile.enrolled_by == pharmacist.id
+    )
+
     total_patients = await db.scalar(
-        select(func.count(User.id)).where(User.role == UserRole.patient)
+        select(func.count(PatientProfile.id)).where(
+            PatientProfile.enrolled_by == pharmacist.id
+        )
     )
 
     active_meds = await db.scalar(
-        select(func.count(MedicationPlan.id)).where(MedicationPlan.is_active == True)
+        select(func.count(MedicationPlan.id)).where(
+            MedicationPlan.is_active == True,
+            MedicationPlan.patient_id.in_(my_patient_ids)
+        )
     )
 
     today = date.today()
     adherence_records = await db.execute(
-        select(AdherenceRecord).where(AdherenceRecord.dose_date == today)
+        select(AdherenceRecord).where(
+            AdherenceRecord.dose_date == today,
+            AdherenceRecord.patient_id.in_(my_patient_ids)
+        )
     )
     records = adherence_records.scalars().all()
     taken_today = sum(1 for r in records if r.status == DoseStatus.taken)
@@ -621,14 +635,17 @@ async def pharmacist_dashboard(
     adherence_avg = round((taken_today / total_today * 100), 1) if total_today > 0 else 0
 
     red_flags = await db.scalar(
-        select(func.count(SymptomTelemetry.id)).where(SymptomTelemetry.red_flag_triggered == True)
+        select(func.count(SymptomTelemetry.id)).where(
+            SymptomTelemetry.red_flag_triggered == True,
+            SymptomTelemetry.patient_id.in_(my_patient_ids)
+        )
     )
 
     recent_patients_result = await db.execute(
         select(PatientProfile, User, StudyMetadata)
         .join(User, PatientProfile.user_id == User.id)
         .outerjoin(StudyMetadata, StudyMetadata.user_id == User.id)
-        .where(User.role == UserRole.patient)
+        .where(PatientProfile.enrolled_by == pharmacist.id)
         .order_by(PatientProfile.created_at.desc())
         .limit(10)
     )

@@ -4,6 +4,11 @@ All notable changes to PMAS are documented here. The project uses a single produ
 
 ## [Unreleased]
 
+### Deployed — audit remediation round 2 (28 Sep 2026)
+- **Per-pharmacist dashboard scoping** (`patient_profiles.enrolled_by`): every dashboard statistic and the recent-patients list are now limited to patients the calling pharmacist personally enrolled. Admins see only patients they enrolled themselves (admin is governance, not clinical superuser). Self-registered patients remain invisible to pharmacists until enrolled. Prerequisite migration `002_enrolled_by.sql` was run on the live database before this deploy.
+- Patients enrolled before this change have no `enrolled_by` owner recorded and will not appear in any pharmacist's worklist until re-enrolled.
+
+
 ### Fixed — audit remediation round 1 (28 Sep 2026)
 - **Patient adherence now actually syncs.** Offline-first records previously carried local medication IDs that the server rejected (silent 422s behind a success toast — the server never received any dose). Medications are now created/mapped server-side on first sync, and adherence records sync with change detection. Sync failures are now surfaced to the patient instead of being swallowed.
 - **Enrolled patients can now log in.** Enrollment returns a one-time temporary password to the pharmacist (portal displays + copies it); patients change it at first login via the new change-password endpoint and patient-app control (5 languages). Previously the generated password was discarded and the account was unreachable.
