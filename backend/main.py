@@ -632,7 +632,7 @@ async def enroll_patient(
         blood_group=enrollment.blood_group,
         known_allergies=enrollment.known_allergies,
         chronic_conditions=enrollment.chronic_conditions,
-        consent_timestamp=datetime.now(timezone.utc),
+        consent_timestamp=None,  # G10: no consent has occurred yet; set at attestation
         consent_version="1.0",
         consent_status=False,  # pending: patient consents on-device (§4A) and attests on first sync
         enrolled_by=pharmacist.id

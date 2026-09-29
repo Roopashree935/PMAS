@@ -64,7 +64,9 @@ class PatientProfile(Base):
     blood_group = Column(String(5))
     known_allergies = Column(Text)
     chronic_conditions = Column(Text)
-    consent_timestamp = Column(DateTime(timezone=True), nullable=False)
+    # G10: NULL until the patient attests consent on their own device (§4A);
+    # set once, at attestation time, by the patient app's sync. Never a placeholder.
+    consent_timestamp = Column(DateTime(timezone=True), nullable=True)
     consent_version = Column(String(20), nullable=False)
     consent_checks = Column(JSONB)
     consent_status = Column(Boolean, default=True)

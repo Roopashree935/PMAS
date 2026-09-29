@@ -4,6 +4,10 @@ All notable changes to PMAS are documented here. The project uses a single produ
 
 ## [Unreleased]
 
+### Deployed — G10 consent-timestamp semantics (29 Sep 2026, after migrations/003)
+- `patient_profiles.consent_timestamp` is now NULL from enrollment until the patient attests consent on their own device — the field means exactly "when consent occurred", never a placeholder. Previously enrollment wrote the enrollment time into a field named as the consent time while consent was still pending (audit finding G10, MEDIUM data-integrity).
+
+
 ### Deployed — governance implementation round (29 Sep 2026, G8/G9/G5)
 - **G8 — patient-controlled credentials.** Enrollment no longer generates or returns a password. The pharmacist receives a one-time 6-digit activation code (valid 7 days); the patient activates the account on their own device ("Activate with code" in the patient app, translated in all 5 languages) and chooses their own password. The pharmacist never enters, receives, or sees the patient's password. Activation is throttled like login (5 failures → 15-minute lockout) and audit-logged (ACCOUNT_ACTIVATED). Unactivated accounts cannot log in (clear "not yet activated" message).
 - **G9 — admin is governance, not clinical.** Enrollment and the pharmacist dashboard are now pharmacist-only. Admin reaches clinical data exclusively through the new break-glass route (`POST /api/v1/admin/break-glass`), which requires a written reason (min 10 chars), returns a single patient's summary, and persists the reason in the new `break_glass_access` table plus the audit trail with IP. No routine admin clinical access remains.
