@@ -125,6 +125,7 @@
 .req { color:var(--amber); }
 .pmas-toast { position:fixed; top:1rem; left:50%; transform:translateX(-50%); z-index:100; background:var(--surface); border:1px solid var(--border, rgba(138,155,190,0.25)); border-radius:var(--radius, 12px); padding:0.7rem 1.1rem; font-size:0.85rem; box-shadow:0 8px 24px rgba(0,0,0,0.4); opacity:0; transition:opacity .25s; pointer-events:none; max-width:90vw; }
 .pmas-toast.show { opacity:1; }
+.pmas-toast.toast-error { background:#7f1d1d; border-color:rgba(239,68,68,0.65); color:#fecaca; }
 .focus-list { list-style:none; padding:0; margin:0.5rem 0 0; }
 .focus-list li { padding:0.22rem 0 0.22rem 1.15rem; position:relative; color:var(--muted); }
 .focus-list li::before { content:"→"; position:absolute; left:0; color:var(--teal); }
@@ -299,13 +300,18 @@
   var WHATSAPP_NUMBER = '919480727214';
   var EMAIL_TO = 'kartik.h6822@gmail.com';
 
-  function toast(msg) {
+  function toast(msg, isError) {
     var t = document.getElementById('pmas-toast');
     if (!t) { alert(msg); return; }
     t.textContent = msg;
+    /* Errors get a distinct red style and are announced assertively, so
+       they cannot be mistaken for a "message sent" confirmation (#30). */
+    t.classList.toggle('toast-error', !!isError);
+    t.setAttribute('role', isError ? 'alert' : 'status');
+    t.setAttribute('aria-live', isError ? 'assertive' : 'polite');
     t.classList.add('show');
     clearTimeout(t._timer);
-    t._timer = setTimeout(function () { t.classList.remove('show'); }, 3200);
+    t._timer = setTimeout(function () { t.classList.remove('show'); }, isError ? 4500 : 3200);
   }
 
   var REQUIRED = ['name', 'email', 'role', 'message'];
@@ -343,7 +349,7 @@
     if (!email) missing.push('your email address');
     else if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
       markInvalid(document.getElementById('email'));
-      toast('Please enter a valid email address.');
+      toast('Please enter a valid email address.', true);
       document.getElementById('email').focus();
       return null;
     }
@@ -355,7 +361,7 @@
         var el = document.getElementById(id);
         if (!val(id)) { markInvalid(el); if (!firstEl) firstEl = el; }
       });
-      toast('Please fill in ' + missing.join(', ') + ' before sending.');
+      toast('Please fill in ' + missing.join(', ') + ' before sending.', true);
       if (firstEl) { firstEl.focus(); firstEl.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
       return null;
     }
