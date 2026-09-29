@@ -367,9 +367,10 @@ async function enrollPatient(e) {
         chronic_conditions: document.getElementById('enr-chronic').value || null
       }
     });
-    const pw = data.temp_password;
-    const copied = confirm('Patient enrolled ✓\n\nOne-time temporary password:\n\n    ' + pw + '\n\nShare it with the patient securely and ask them to change it at first login (patient app → Account & Cloud Sync → Change Password).\n\nPress OK to copy the password to your clipboard — it will not be shown again.');
-    if (copied) { try { navigator.clipboard.writeText(pw); } catch (e) {} }
+    const code = data.activation_code;
+    const sid = data.study_id ? ('\nStudy ID: ' + data.study_id) : '';
+    const copied = confirm('Patient enrolled ✓\n' + sid + '\n\nOne-time activation code (valid 7 days):\n\n    ' + code + '\n\nShare it with the patient securely. The patient installs the PMAS app, goes to Account & Cloud Sync, taps "Activate with code", enters this code, and chooses their OWN password — you never set or see the patient\'s password.\n\nPress OK to copy the code to your clipboard — it will not be shown again.');
+    if (copied) { try { navigator.clipboard.writeText(code); } catch (e) {} }
     document.querySelector('#tab-enroll form').reset();
     switchTab('patients', document.querySelector('.tab-btn'));
     await loadDashboard();

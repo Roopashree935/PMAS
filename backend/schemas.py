@@ -30,10 +30,29 @@ class TokenResponse(BaseModel):
     user_id: str
 
 
-class EnrollmentResponse(TokenResponse):
-    """Enrollment result — includes the one-time temporary password the
-    pharmacist relays to the patient (changed by the patient at first login)."""
-    temp_password: str
+class EnrollmentResponse(BaseModel):
+    """Enrollment result — includes the one-time ACTIVATION CODE the pharmacist
+    relays to the patient. The patient activates the account on their own
+    device and chooses their own password; the pharmacist never sets or sees
+    the patient's password (PRD v1.1 §4A / G8)."""
+    user_id: str
+    role: str = "patient"
+    study_id: str
+    activation_code: str
+    activation_expires_days: int = 7
+
+
+class ActivationRequest(BaseModel):
+    """Patient-side account activation for pharmacist-enrolled patients."""
+    phone_number: str = Field(..., pattern=r"^\d{10}$")
+    activation_code: str = Field(..., min_length=6, max_length=6)
+    new_password: str = Field(..., min_length=8, max_length=100)
+
+
+class BreakGlassRequest(BaseModel):
+    """Admin break-glass access request — a written reason is mandatory (G9)."""
+    phone_number: str = Field(..., pattern=r"^\d{10}$")
+    reason: str = Field(..., min_length=10, max_length=500)
 
 
 class PasswordChange(BaseModel):

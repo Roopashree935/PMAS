@@ -498,6 +498,16 @@
           </label>
           <button class="btn btn-primary mt-1" onclick="syncLogin()" data-i18n="sync_sign_in">Sign In</button>
           <button class="btn btn-secondary mt-1" onclick="syncRegister()" data-i18n="sync_register">Create Account</button>
+          <button class="btn btn-ghost mt-1" style="font-size:0.75rem;padding:0.35rem 0.6rem;" onclick="toggleActivationForm()" data-i18n="sync_activate">Activate with code</button>
+        </div>
+        <div id="sync-act-wrap" class="hidden" style="margin-top:0.75rem;">
+          <label class="field-label" for="act-phone" data-i18n="sync_phone">Phone Number</label>
+          <input type="tel" id="act-phone" inputmode="numeric" maxlength="10" placeholder="10-digit mobile">
+          <label class="field-label" for="act-code" data-i18n="sync_code">Activation code</label>
+          <input type="text" id="act-code" inputmode="numeric" maxlength="6" autocomplete="one-time-code">
+          <label class="field-label" for="act-pass" data-i18n="sync_new_pw">New password</label>
+          <input type="password" id="act-pass" autocomplete="new-password">
+          <button class="btn btn-primary mt-1" onclick="syncActivate()" data-i18n="sync_activate_btn">Activate</button>
         </div>
         <div id="sync-pw-wrap" class="hidden" style="margin-top:0.75rem;">
           <label class="field-label" for="sync-old-pw" data-i18n="sync_old_pw">Current password</label>

@@ -62,6 +62,22 @@ const API = {
     localStorage.removeItem('pmas_consent_synced');
   },
 
+  async activate(phone, activationCode, newPassword) {
+    const res = await this._fetch('/api/v1/auth/activate', {
+      method: 'POST',
+      body: {
+        phone_number: phone,
+        activation_code: activationCode,
+        new_password: newPassword
+      }
+    });
+    if (res.access_token) {
+      this.token = res.access_token;
+      localStorage.setItem('pmas_auth_token', this.token);
+    }
+    return res;
+  },
+
   async changePassword(currentPassword, newPassword) {
     return this._fetch('/api/v1/auth/change-password', {
       method: 'POST',

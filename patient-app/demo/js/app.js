@@ -811,6 +811,35 @@ function syncLogout() {
   showToast(tr('sync_offline'));
 }
 
+function toggleActivationForm() {
+  const wrap = el('sync-act-wrap');
+  if (wrap) wrap.classList.toggle('hidden');
+}
+
+async function syncActivate() {
+  const phone = el('act-phone').value.trim();
+  const code = el('act-code').value.trim();
+  const pw = el('act-pass').value;
+  if (!phone || !code || !pw) { showToast(tr('sync_fill_fields')); return; }
+  if (pw.length < 8) { showToast(tr('sync_pw_min')); return; }
+  try {
+    await API.activate(phone, code, pw);
+    el('act-phone').value = '';
+    el('act-code').value = '';
+    el('act-pass').value = '';
+    const wrap = el('sync-act-wrap');
+    if (wrap) wrap.classList.add('hidden');
+    const res = await API.syncPending();
+    updateSyncStatus();
+    showToast(tr('sync_activated'));
+    if (res && res.failed > 0) {
+      setTimeout(() => showToast(tr('sync_sync_failed') + ' (' + res.failed + ')'), 2600);
+    }
+  } catch (e) {
+    showToast(tr('sync_code_invalid'));
+  }
+}
+
 async function syncChangePassword() {
   const oldPw = el('sync-old-pw').value;
   const newPw = el('sync-new-pw').value;

@@ -156,6 +156,33 @@ class SecurityAuditTrail(Base):
     timestamp = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 
+class PendingActivation(Base):
+    """One-time activation code for pharmacist-enrolled patients.
+
+    The pharmacist never sets or sees the patient's password: enrollment
+    leaves the account inactive with a hashed activation code; the patient
+    activates it on their own device and chooses their own password (G8)."""
+    __tablename__ = "pending_activations"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), unique=True)
+    code_hash = Column(String(128), nullable=False)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
+class BreakGlassAccess(Base):
+    """Exceptional admin access to a patient's clinical data (G9).
+
+    Routine clinical access is pharmacist-only; an admin reaching patient data
+    must state a reason, which is persisted here and in the audit trail."""
+    __tablename__ = "break_glass_access"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    performed_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    patient_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    reason = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
 class StudyMetadata(Base):
     __tablename__ = "study_metadata"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)

@@ -88,14 +88,17 @@ async def get_current_user(
     return user
 
 
-async def require_pharmacist_or_admin(
+async def require_pharmacist(
     user: User = Depends(get_current_user)
 ) -> User:
-    """Allow both pharmacist and admin roles."""
-    if user.role not in (UserRole.pharmacist, UserRole.admin):
+    """Pharmacist-only guard for clinical workflows.
+
+    Admin is a governance role: it reaches clinical data exclusively through
+    the break-glass route, with a recorded reason (permission matrix / G9)."""
+    if user.role != UserRole.pharmacist:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Pharmacist or admin access required"
+            detail="Pharmacist access required"
         )
     return user
 

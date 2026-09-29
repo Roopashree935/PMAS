@@ -4,6 +4,13 @@ All notable changes to PMAS are documented here. The project uses a single produ
 
 ## [Unreleased]
 
+### Deployed — governance implementation round (29 Sep 2026, G8/G9/G5)
+- **G8 — patient-controlled credentials.** Enrollment no longer generates or returns a password. The pharmacist receives a one-time 6-digit activation code (valid 7 days); the patient activates the account on their own device ("Activate with code" in the patient app, translated in all 5 languages) and chooses their own password. The pharmacist never enters, receives, or sees the patient's password. Activation is throttled like login (5 failures → 15-minute lockout) and audit-logged (ACCOUNT_ACTIVATED). Unactivated accounts cannot log in (clear "not yet activated" message).
+- **G9 — admin is governance, not clinical.** Enrollment and the pharmacist dashboard are now pharmacist-only. Admin reaches clinical data exclusively through the new break-glass route (`POST /api/v1/admin/break-glass`), which requires a written reason (min 10 chars), returns a single patient's summary, and persists the reason in the new `break_glass_access` table plus the audit trail with IP. No routine admin clinical access remains.
+- **G5 — research export is consent-gated.** `/api/v1/research/export` now requires the patient's attested research consent (`consent_status=True` plus the full acknowledgement set from the §4A attestation). Authentication is not authorization; audit logging is not authorization.
+- Schema notes: new tables `pending_activations` and `break_glass_access` are auto-created on deploy (no manual SQL needed). **Staged for after migrations/003 runs on the live database: G10 (consent-timestamp nullability).**
+
+
 ### Deployed — audit remediation round 2 (28 Sep 2026)
 - **Per-pharmacist dashboard scoping** (`patient_profiles.enrolled_by`): every dashboard statistic and the recent-patients list are now limited to patients the calling pharmacist personally enrolled. Admins see only patients they enrolled themselves (admin is governance, not clinical superuser). Self-registered patients remain invisible to pharmacists until enrolled. Prerequisite migration `002_enrolled_by.sql` was run on the live database before this deploy.
 - Patients enrolled before this change have no `enrolled_by` owner recorded and will not appear in any pharmacist's worklist until re-enrolled.

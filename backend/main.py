@@ -4,6 +4,7 @@ Multilingual Transition-of-Care & Clinical Adherence Engine
 Dual-Vault architecture: Vault A (PII) | Vault B (Clinical & HEOR)
 """
 import os
+import secrets
 from datetime import date, datetime, timezone, timedelta
 from uuid import uuid4, UUID
 from typing import List, Optional
@@ -15,7 +16,7 @@ from sqlalchemy.exc import IntegrityError
 from contextlib import asynccontextmanager
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database import get_db, Base, engine, async_session, User, UserRole, PatientProfile, MedicationPlan, AdherenceRecord, DoseStatus, SymptomTelemetry, Appointment, SecurityAuditTrail, StudyMetadata
+from database import get_db, Base, engine, async_session, User, UserRole, PatientProfile, MedicationPlan, AdherenceRecord, DoseStatus, SymptomTelemetry, Appointment, SecurityAuditTrail, StudyMetadata, PendingActivation, BreakGlassAccess
 from schemas import (
     UserRegister, UserLogin, TokenResponse,
     PatientProfileCreate, PatientProfileResponse,
@@ -25,11 +26,11 @@ from schemas import (
     AppointmentCreate, AppointmentResponse,
     PatientEnrollment, PharmacistDashboard,
     AdminUserCreate, AdminUserUpdate, AdminUserResponse,
-    EnrollmentResponse, PasswordChange
+    EnrollmentResponse, PasswordChange, ActivationRequest, BreakGlassRequest
 )
 from auth import (
     hash_password, verify_password, create_access_token,
-    get_current_user, require_pharmacist_or_admin, require_admin
+    get_current_user, require_pharmacist, require_admin
 )
 
 from dotenv import load_dotenv
@@ -140,6 +141,19 @@ async def register(user_data: UserRegister, request: Request, db: AsyncSession =
     return TokenResponse(access_token=token, role=user.role.value, user_id=str(user.id))
 
 
+# ─── Activation throttling (in-process, per phone; reset on success) ──
+_failed_activations: dict = {}
+
+
+def _register_failed_activation(phone: str):
+    entry = _failed_activations.get(phone, {"count": 0, "locked_until": None})
+    entry["count"] += 1
+    if entry["count"] >= LOGIN_MAX_FAILURES:
+        entry["locked_until"] = datetime.now(timezone.utc) + timedelta(minutes=LOGIN_LOCKOUT_MINUTES)
+        entry["count"] = 0
+    _failed_activations[phone] = entry
+
+
 # ─── Login throttling (in-process, per phone; reset on success) ──
 _failed_logins: dict = {}
 LOGIN_MAX_FAILURES = 5
@@ -171,6 +185,10 @@ async def login(credentials: UserLogin, request: Request, db: AsyncSession = Dep
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     if not user.is_active:
+        # Note: unactivated (enrolled-but-pending) accounts can never reach this branch —
+        # their password hash is an unguessable placeholder, so the password check above
+        # already fails with a generic 401. That is intentional: revealing "not yet
+        # activated" would enumerate enrolled phone numbers.
         raise HTTPException(status_code=403, detail="Account deactivated")
 
     _failed_logins.pop(phone, None)
@@ -178,6 +196,53 @@ async def login(credentials: UserLogin, request: Request, db: AsyncSession = Dep
     # Audit
     db.add(SecurityAuditTrail(performed_by=user.id, action="LOGIN", target_resource="auth", ip_address=request.client.host if request.client else None))
 
+    token = create_access_token(user.id, user.role.value)
+    return TokenResponse(access_token=token, role=user.role.value, user_id=str(user.id))
+
+
+@app.post("/api/v1/auth/activate", response_model=TokenResponse)
+async def activate_account(
+    data: ActivationRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+):
+    """Patient activates an account created by pharmacist enrollment.
+
+    The pharmacist never sets or sees the patient's password: enrollment
+    issues a one-time activation code (valid 7 days); the patient chooses
+    their own password here, on their own device (PRD v1.1 §4A / G8)."""
+    phone = data.phone_number
+    entry = _failed_activations.get(phone)
+    if entry and entry["locked_until"] and datetime.now(timezone.utc) < entry["locked_until"]:
+        raise HTTPException(status_code=429, detail="Too many failed attempts. Try again later.")
+
+    result = await db.execute(select(User).where(User.phone_number == phone))
+    user = result.scalar_one_or_none()
+    pending = None
+    if user:
+        p_result = await db.execute(
+            select(PendingActivation).where(PendingActivation.user_id == user.id)
+        )
+        pending = p_result.scalar_one_or_none()
+
+    if not user or not pending or not verify_password(data.activation_code, pending.code_hash):
+        _register_failed_activation(phone)
+        raise HTTPException(status_code=400, detail="Invalid phone number or activation code")
+
+    expires_at = pending.expires_at
+    if expires_at.tzinfo is None:  # SQLite returns naive datetimes; Postgres is timezone-aware
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    if datetime.now(timezone.utc) > expires_at:
+        raise HTTPException(status_code=410, detail="Activation code expired. Ask your pharmacist to re-enroll you.")
+
+    user.password_hash = hash_password(data.new_password)
+    user.is_active = True
+    await db.delete(pending)
+    _failed_activations.pop(phone, None)
+    db.add(SecurityAuditTrail(
+        performed_by=user.id, action="ACCOUNT_ACTIVATED", target_resource="auth",
+        ip_address=request.client.host if request.client else None
+    ))
     token = create_access_token(user.id, user.role.value)
     return TokenResponse(access_token=token, role=user.role.value, user_id=str(user.id))
 
@@ -521,29 +586,40 @@ async def get_appointments(
 async def enroll_patient(
     enrollment: PatientEnrollment,
     request: Request,
-    pharmacist: User = Depends(require_pharmacist_or_admin),
+    pharmacist: User = Depends(require_pharmacist),
     db: AsyncSession = Depends(get_db)
 ):
-    """Pharmacist enrolls a new patient — creates account and profile.
+    """Pharmacist enrolls a new patient — creates an INACTIVE account and profile.
 
-    Returns a one-time temporary password that the pharmacist must relay to
-    the patient; the patient changes it at first login. Consent is NOT granted
-    here: the patient consents on their own device (PRD v1.1 §4A) and the
-    patient app attests the consent record when it first syncs.
+    Returns a one-time activation code (valid 7 days) that the pharmacist
+    relays to the patient. The patient activates the account on their own
+    device and chooses their own password — the pharmacist never enters,
+    receives, or sees the patient's password (PRD v1.1 §4A / G8).
+    Consent is NOT granted here: the patient consents on their own device
+    and the patient app attests the consent record when it first syncs.
     """
     existing = await db.execute(select(User).where(User.phone_number == enrollment.phone_number))
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=409, detail="Patient already enrolled")
 
-    temp_password = str(uuid4().int)[:8]
+    # Random, unguessable placeholder hash: the account is INACTIVE until the
+    # patient activates it with their own chosen password.
     user = User(
         phone_number=enrollment.phone_number,
-        password_hash=hash_password(temp_password),
+        password_hash=hash_password(secrets.token_hex(16)),
         role=UserRole.patient,
+        is_active=False,
         preferred_language=enrollment.preferred_language
     )
     db.add(user)
     await db.flush()
+
+    activation_code = f"{secrets.randbelow(1000000):06d}"
+    db.add(PendingActivation(
+        user_id=user.id,
+        code_hash=hash_password(activation_code),
+        expires_at=datetime.now(timezone.utc) + timedelta(days=7)
+    ))
 
     profile = PatientProfile(
         user_id=user.id,
@@ -577,26 +653,26 @@ async def enroll_patient(
         ip_address=request.client.host if request.client else None
     ))
 
-    token = create_access_token(user.id, user.role.value)
     return EnrollmentResponse(
-        access_token=token,
-        role=user.role.value,
         user_id=str(user.id),
-        temp_password=temp_password
+        role=user.role.value,
+        study_id=study_meta.study_id if study_meta else None,
+        activation_code=activation_code,
+        activation_expires_days=7
     )
 
 
 @app.get("/api/v1/pharmacist/dashboard", response_model=PharmacistDashboard)
 async def pharmacist_dashboard(
     request: Request,
-    pharmacist: User = Depends(require_pharmacist_or_admin),
+    pharmacist: User = Depends(require_pharmacist),
     db: AsyncSession = Depends(get_db)
 ):
     """Get dashboard stats, scoped to patients this pharmacist personally
     enrolled (permission matrix: a pharmacist sees only their own patients).
-    Every access is audit-logged. Admin callers likewise see only patients
-    they enrolled themselves — admin is a governance role, not a clinical
-    superuser. Self-registered patients are not visible to any pharmacist
+    Pharmacist-only by design: admin is a governance role and reaches clinical
+    data exclusively through the break-glass route (G9). Every access is
+    audit-logged. Self-registered patients are not visible to any pharmacist
     until enrolled.
     """
     db.add(SecurityAuditTrail(
@@ -677,7 +753,13 @@ async def research_export(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Generate a de-identified research export for HEOR analysis (self-scoped, audit-logged)."""
+    """Generate a de-identified research export for HEOR analysis.
+
+    Gated on the patient's ATTESTED research consent (G5): authentication is
+    not authorization, audit logging is not authorization, and de-identification
+    is not authorization. The consent record must show consent_status=True
+    with the full set of research-consent acknowledgements (§4A attestation).
+    """
     study_meta = await db.execute(
         select(StudyMetadata).where(StudyMetadata.user_id == user.id)
     )
@@ -685,6 +767,25 @@ async def research_export(
 
     if not study:
         raise HTTPException(status_code=404, detail="Study metadata not found")
+
+    profile_result = await db.execute(
+        select(PatientProfile).where(PatientProfile.user_id == user.id)
+    )
+    profile = profile_result.scalar_one_or_none()
+    checks = profile.consent_checks if profile else None
+    consent_valid = (
+        profile is not None
+        and profile.consent_status is True
+        and (
+            (isinstance(checks, list) and len(checks) >= 5 and all(checks))
+            or (isinstance(checks, dict) and bool(checks))
+        )
+    )
+    if not consent_valid:
+        raise HTTPException(
+            status_code=403,
+            detail="Research export requires the patient's attested research consent"
+        )
 
     db.add(SecurityAuditTrail(
         performed_by=user.id,
@@ -751,6 +852,88 @@ async def research_export(
 # ═══════════════════════════════════════════════════════════════
 # ADMIN — ACCOUNT GOVERNANCE
 # ═══════════════════════════════════════════════════════════════
+
+@app.post("/api/v1/admin/break-glass")
+async def admin_break_glass(
+    data: BreakGlassRequest,
+    request: Request,
+    admin: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """Exceptional admin access to ONE patient's clinical data (G9).
+
+    Admin is a governance role: routine clinical access is pharmacist-only.
+    Every break-glass use requires a written reason, which is persisted
+    (break_glass_access table) and audit-logged with the caller's IP.
+    """
+    if len(data.reason.strip()) < 10:
+        raise HTTPException(status_code=422, detail="A written reason (at least 10 characters) is required")
+
+    result = await db.execute(select(User).where(User.phone_number == data.phone_number))
+    patient = result.scalar_one_or_none()
+    if not patient or patient.role != UserRole.patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+
+    profile_result = await db.execute(
+        select(PatientProfile).where(PatientProfile.user_id == patient.id)
+    )
+    profile = profile_result.scalar_one_or_none()
+    if not profile:
+        raise HTTPException(status_code=404, detail="Patient has no profile on record")
+
+    study_result = await db.execute(
+        select(StudyMetadata).where(StudyMetadata.user_id == patient.id)
+    )
+    study = study_result.scalar_one_or_none()
+
+    meds = (await db.execute(
+        select(MedicationPlan).where(MedicationPlan.patient_id == patient.id)
+    )).scalars().all()
+
+    today = date.today()
+    taken = 0
+    expected_slots = 0
+    for i in range(7):
+        d = today - timedelta(days=i)
+        for med in meds:
+            if med.start_date <= d <= med.end_date:
+                if med.frequency_morning: expected_slots += 1
+                if med.frequency_afternoon: expected_slots += 1
+                if med.frequency_night: expected_slots += 1
+        day_records = (await db.execute(
+            select(AdherenceRecord).where(
+                and_(AdherenceRecord.patient_id == patient.id, AdherenceRecord.dose_date == d)
+            )
+        )).scalars().all()
+        taken += sum(1 for r in day_records if r.status == DoseStatus.taken)
+
+    red_flags = await db.scalar(
+        select(func.count(SymptomTelemetry.id)).where(
+            and_(SymptomTelemetry.patient_id == patient.id, SymptomTelemetry.red_flag_triggered == True)
+        )
+    )
+
+    reason = data.reason.strip()
+    db.add(BreakGlassAccess(performed_by=admin.id, patient_user_id=patient.id, reason=reason))
+    db.add(SecurityAuditTrail(
+        performed_by=admin.id,
+        action="BREAK_GLASS",
+        target_resource=f"users:{patient.id}",
+        ip_address=request.client.host if request.client else None
+    ))
+
+    return {
+        "patient": {
+            "name": profile.full_name,
+            "phone": patient.phone_number,
+            "study_id": study.study_id if study else None,
+            "consent_status": profile.consent_status
+        },
+        "adherence_7d": {"taken": taken, "expected_slots": expected_slots},
+        "red_flag_alerts": red_flags or 0,
+        "reason_recorded": reason
+    }
+
 
 @app.get("/api/v1/admin/users", response_model=List[AdminUserResponse])
 async def admin_list_users(
