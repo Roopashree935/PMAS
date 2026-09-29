@@ -9,6 +9,12 @@ from datetime import date, datetime, timezone, timedelta
 from uuid import uuid4, UUID
 from typing import List, Optional
 
+# Load environment variables BEFORE importing database/auth: both modules
+# read JWT_SECRET and DATABASE_URL at import time, so importing them first
+# would silently fall back to the insecure development defaults (#26).
+from dotenv import load_dotenv
+load_dotenv()
+
 from fastapi import FastAPI, Depends, HTTPException, status, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select, func, and_
@@ -30,11 +36,9 @@ from schemas import (
 )
 from auth import (
     hash_password, verify_password, create_access_token,
-    get_current_user, require_pharmacist, require_admin
+    get_current_user, require_pharmacist, require_admin,
+    JWT_SECRET
 )
-
-from dotenv import load_dotenv
-load_dotenv()
 
 
 # ─── Lifespan: configuration guard + table creation ──────────
@@ -43,6 +47,14 @@ async def lifespan(_: FastAPI):
     """Refuse to start with unsafe configuration, then create tables."""
     if not os.getenv("JWT_SECRET"):
         raise RuntimeError("JWT_SECRET is not set — refusing to start with an insecure default.")
+    # Defense in depth (#26): auth.py captures JWT_SECRET at import time, so
+    # verify the effective signing secret is not the public development default.
+    if JWT_SECRET == "pmas-dev-secret-change-in-production":
+        raise RuntimeError(
+            "JWT_SECRET resolved to the public development default — refusing to start. "
+            "Set a real secret via an environment variable or .env "
+            "(loaded before the auth import; see #26)."
+        )
     cors_origins = [o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()]
     if not cors_origins:
         raise RuntimeError("CORS_ORIGINS must be set to an explicit origin allow-list.")
