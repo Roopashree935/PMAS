@@ -23,7 +23,7 @@ from sqlalchemy.exc import IntegrityError
 from contextlib import asynccontextmanager
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database import get_db, Base, engine, async_session, User, UserRole, PatientProfile, MedicationPlan, AdherenceRecord, DoseStatus, SymptomTelemetry, Appointment, SecurityAuditTrail, StudyMetadata, PendingActivation, BreakGlassAccess
+from database import get_db, Base, engine, async_session, User, UserRole, PatientProfile, MedicationPlan, AdherenceRecord, DoseStatus, SymptomTelemetry, Appointment, SecurityAuditTrail, StudyMetadata, PendingActivation, BreakGlassAccess, ThrottleState
 from schemas import (
     UserRegister, UserLogin, TokenResponse,
     PatientProfileCreate, PatientProfileResponse,
@@ -114,6 +114,20 @@ def clinical_today() -> date:
     return datetime.now(CLINICAL_TZ).date()
 
 
+def expected_dose_slots(meds, day: date) -> int:
+    """Expected dose slots for a clinical day from active medication plans.
+
+    Shared by the pharmacist dashboard and admin break-glass so both
+    compute adherence against the prescribed regimen, not just logged
+    doses — a patient who took 1 of 3 doses and logged only that one
+    is 33%, not 100% (issue #29)."""
+    total = 0
+    for med in meds:
+        if getattr(med, "is_active", True) and med.start_date <= day <= med.end_date:
+            total += int(bool(med.frequency_morning)) + int(bool(med.frequency_afternoon)) + int(bool(med.frequency_night))
+    return total
+
+
 # ═══════════════════════════════════════════════════════════════
 # HEALTH & SYSTEM
 # ═══════════════════════════════════════════════════════════════
@@ -155,7 +169,7 @@ async def register(user_data: UserRegister, request: Request, db: AsyncSession =
     if user.role == UserRole.patient:
         study_meta = StudyMetadata(
             user_id=user.id,
-            study_id=f"PMAS-{str(uuid4().int)[:6]}",
+study_id=f"PMAS-{str(uuid4().int)[:10]}",  # 10-digit space (#31): 6 digits 50%-collide at ~1.2k patients
             baseline_date=clinical_today()
         )
         db.add(study_meta)
@@ -167,47 +181,64 @@ async def register(user_data: UserRegister, request: Request, db: AsyncSession =
     return TokenResponse(access_token=token, role=user.role.value, user_id=str(user.id))
 
 
-# ─── Activation throttling (in-process, per phone; reset on success) ──
-_failed_activations: dict = {}
-
-
-def _register_failed_activation(phone: str):
-    entry = _failed_activations.get(phone, {"count": 0, "locked_until": None})
-    entry["count"] += 1
-    if entry["count"] >= LOGIN_MAX_FAILURES:
-        entry["locked_until"] = datetime.now(timezone.utc) + timedelta(minutes=LOGIN_LOCKOUT_MINUTES)
-        entry["count"] = 0
-    _failed_activations[phone] = entry
-
-
-# ─── Login throttling (in-process, per phone; reset on success) ──
-_failed_logins: dict = {}
+# ─── Throttling (DB-backed: survives restarts, shared across workers) ──
+# Issue #27: the previous in-process dicts reset on every restart, were
+# per-worker, and grew unboundedly. Limits are now persisted in the
+# throttle_states table — one row per (context, phone); 5 consecutive
+# failures lock that phone for 15 minutes; a success clears the row.
 LOGIN_MAX_FAILURES = 5
 LOGIN_LOCKOUT_MINUTES = 15
 
 
-def _register_failed_login(phone: str):
-    entry = _failed_logins.get(phone, {"count": 0, "locked_until": None})
-    entry["count"] += 1
-    if entry["count"] >= LOGIN_MAX_FAILURES:
-        entry["locked_until"] = datetime.now(timezone.utc) + timedelta(minutes=LOGIN_LOCKOUT_MINUTES)
-        entry["count"] = 0
-    _failed_logins[phone] = entry
+async def _throttle_get(db: AsyncSession, context: str, phone: str):
+    return (await db.execute(
+        select(ThrottleState).where(and_(
+            ThrottleState.context == context, ThrottleState.phone_number == phone
+        ))
+    )).scalar_one_or_none()
+
+
+async def _throttle_check(db: AsyncSession, context: str, phone: str):
+    row = await _throttle_get(db, context, phone)
+    if row and row.locked_until:
+        lu = row.locked_until
+        if lu.tzinfo is None:  # SQLite returns naive datetimes; Postgres is timezone-aware
+            lu = lu.replace(tzinfo=timezone.utc)
+        if datetime.now(timezone.utc) < lu:
+            raise HTTPException(status_code=429, detail="Too many failed attempts. Try again later.")
+
+
+async def _throttle_fail(db: AsyncSession, context: str, phone: str):
+    row = await _throttle_get(db, context, phone)
+    if not row:
+        row = ThrottleState(context=context, phone_number=phone, failed_count=0)
+    row.failed_count = (row.failed_count or 0) + 1
+    if row.failed_count >= LOGIN_MAX_FAILURES:
+        row.locked_until = datetime.now(timezone.utc) + timedelta(minutes=LOGIN_LOCKOUT_MINUTES)
+        row.failed_count = 0
+    db.add(row)
+    await db.commit()  # the caller raises 401/400 right after; persist now or lose it
+
+
+async def _throttle_clear(db: AsyncSession, context: str, phone: str):
+    row = await _throttle_get(db, context, phone)
+    if row:
+        await db.delete(row)
+        await db.commit()
+
 
 
 @app.post("/api/v1/auth/login", response_model=TokenResponse)
 async def login(credentials: UserLogin, request: Request, db: AsyncSession = Depends(get_db)):
     """Login with phone number and password. Locks out after repeated failures."""
     phone = credentials.phone_number
-    entry = _failed_logins.get(phone)
-    if entry and entry["locked_until"] and datetime.now(timezone.utc) < entry["locked_until"]:
-        raise HTTPException(status_code=429, detail="Too many failed attempts. Try again later.")
+    await _throttle_check(db, "login", phone)
 
     result = await db.execute(select(User).where(User.phone_number == phone))
     user = result.scalar_one_or_none()
 
     if not user or not verify_password(credentials.password, user.password_hash):
-        _register_failed_login(phone)
+        await _throttle_fail(db, "login", phone)
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     if not user.is_active:
@@ -217,7 +248,7 @@ async def login(credentials: UserLogin, request: Request, db: AsyncSession = Dep
         # activated" would enumerate enrolled phone numbers.
         raise HTTPException(status_code=403, detail="Account deactivated")
 
-    _failed_logins.pop(phone, None)
+    await _throttle_clear(db, "login", phone)
 
     # Audit
     db.add(SecurityAuditTrail(performed_by=user.id, action="LOGIN", target_resource="auth", ip_address=request.client.host if request.client else None))
@@ -238,9 +269,7 @@ async def activate_account(
     issues a one-time activation code (valid 7 days); the patient chooses
     their own password here, on their own device (PRD v1.1 §4A / G8)."""
     phone = data.phone_number
-    entry = _failed_activations.get(phone)
-    if entry and entry["locked_until"] and datetime.now(timezone.utc) < entry["locked_until"]:
-        raise HTTPException(status_code=429, detail="Too many failed attempts. Try again later.")
+    await _throttle_check(db, "activation", phone)
 
     result = await db.execute(select(User).where(User.phone_number == phone))
     user = result.scalar_one_or_none()
@@ -252,7 +281,7 @@ async def activate_account(
         pending = p_result.scalar_one_or_none()
 
     if not user or not pending or not verify_password(data.activation_code, pending.code_hash):
-        _register_failed_activation(phone)
+        await _throttle_fail(db, "activation", phone)
         raise HTTPException(status_code=400, detail="Invalid phone number or activation code")
 
     expires_at = pending.expires_at
@@ -264,7 +293,7 @@ async def activate_account(
     user.password_hash = hash_password(data.new_password)
     user.is_active = True
     await db.delete(pending)
-    _failed_activations.pop(phone, None)
+    await _throttle_clear(db, "activation", phone)
     db.add(SecurityAuditTrail(
         performed_by=user.id, action="ACCOUNT_ACTIVATED", target_resource="auth",
         ip_address=request.client.host if request.client else None
@@ -367,7 +396,7 @@ async def get_medications(
 
 @app.delete("/api/v1/medications/{med_id}")
 async def delete_medication(
-    med_id: str,
+    med_id: UUID,  # UUID-typed: non-UUID input is a 422, not a 500 (#33)
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -667,7 +696,7 @@ async def enroll_patient(
 
     study_meta = StudyMetadata(
         user_id=user.id,
-        study_id=f"PMAS-{str(uuid4().int)[:6]}",
+study_id=f"PMAS-{str(uuid4().int)[:10]}",  # 10-digit space (#31): 6 digits 50%-collide at ~1.2k patients
         baseline_date=clinical_today()
     )
     db.add(study_meta)
@@ -733,8 +762,17 @@ async def pharmacist_dashboard(
     )
     records = adherence_records.scalars().all()
     taken_today = sum(1 for r in records if r.status == DoseStatus.taken)
-    total_today = len(records)
-    adherence_avg = round((taken_today / total_today * 100), 1) if total_today > 0 else 0
+    # Expected slots from ACTIVE plans, not just logged doses (#29): the
+    # pharmacist makes intervention decisions from this number, so a
+    # patient who took 1 of 3 doses and logged only that one is 33%, not 100%.
+    active_meds_today = (await db.execute(
+        select(MedicationPlan).where(and_(
+            MedicationPlan.patient_id.in_(my_patient_ids),
+            MedicationPlan.is_active == True
+        ))
+    )).scalars().all()
+    expected_today = expected_dose_slots(active_meds_today, today)
+    adherence_avg = round((taken_today / expected_today * 100), 1) if expected_today > 0 else 0
 
     red_flags = await db.scalar(
         select(func.count(SymptomTelemetry.id)).where(
@@ -917,21 +955,16 @@ async def admin_break_glass(
     )).scalars().all()
 
     today = clinical_today()
-    taken = 0
-    expected_slots = 0
-    for i in range(7):
-        d = today - timedelta(days=i)
-        for med in meds:
-            if med.start_date <= d <= med.end_date:
-                if med.frequency_morning: expected_slots += 1
-                if med.frequency_afternoon: expected_slots += 1
-                if med.frequency_night: expected_slots += 1
-        day_records = (await db.execute(
-            select(AdherenceRecord).where(
-                and_(AdherenceRecord.patient_id == patient.id, AdherenceRecord.dose_date == d)
-            )
-        )).scalars().all()
-        taken += sum(1 for r in day_records if r.status == DoseStatus.taken)
+    # One range query instead of one query per day (N+1, issue #32);
+    # expected slots from the shared helper, same as the dashboard (#29).
+    week_records = (await db.execute(
+        select(AdherenceRecord).where(and_(
+            AdherenceRecord.patient_id == patient.id,
+            AdherenceRecord.dose_date.between(today - timedelta(days=6), today)
+        ))
+    )).scalars().all()
+    taken = sum(1 for r in week_records if r.status == DoseStatus.taken)
+    expected_slots = sum(expected_dose_slots(meds, today - timedelta(days=i)) for i in range(7))
 
     red_flags = await db.scalar(
         select(func.count(SymptomTelemetry.id)).where(

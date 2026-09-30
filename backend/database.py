@@ -172,6 +172,21 @@ class PendingActivation(Base):
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 
+class ThrottleState(Base):
+    """Persistent login/activation throttling (issue #27).
+
+    DB-backed so limits survive restarts and are shared across workers,
+    unlike the previous in-process dicts. One row per (context, phone);
+    5 consecutive failures lock that phone for 15 minutes."""
+    __tablename__ = "throttle_states"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    context = Column(String(20), nullable=False)   # 'login' | 'activation'
+    phone_number = Column(String(15), nullable=False, index=True)
+    failed_count = Column(Integer, nullable=False, default=0)
+    locked_until = Column(DateTime(timezone=True), nullable=True)
+    __table_args__ = (UniqueConstraint("context", "phone_number", name="uq_throttle_context_phone"),)
+
+
 class BreakGlassAccess(Base):
     """Exceptional admin access to a patient's clinical data (G9).
 
