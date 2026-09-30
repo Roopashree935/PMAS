@@ -1,0 +1,14 @@
+# Ruff configuration — pragmatic gate for a codebase that predates CI (#34).
+# Deliberately ignored, with reasons:
+#   E402 - module-import-not-at-top: required by the .env-before-import
+#          ordering that fixes #26 — load_dotenv() must run before the
+#          database/auth imports read their environment.
+#   E701 - multiple-statements-on-one-line: pre-existing style in main.py.
+#   E712 - true-false-comparison: idiomatic SQLAlchemy filter comparison.
+#   F401 - unused-import: 5 pre-existing instances; cleanup PR welcome.
+# Everything else in the default rule set (E4/E7/E9 + pyflakes F) is enforced,
+# which catches syntax errors, undefined names and real breakage.
+target-version = "py312"
+
+[lint]
+ignore = ["E402", "E701", "E712", "F401"]
