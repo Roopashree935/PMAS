@@ -45,6 +45,10 @@ class User(Base):
     role = Column(SAEnum(UserRole), default=UserRole.patient, nullable=False)
     preferred_language = Column(String(10), default="en")
     is_active = Column(Boolean, default=True)
+    # #40 Phase 2: tokens minted before this instant are rejected, so a
+    # password rotation revokes all existing sessions. NULL = no revocation
+    # (all pre-existing rows) — backward compatible.
+    token_valid_after = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     profile = relationship("PatientProfile", back_populates="user", uselist=False, foreign_keys="PatientProfile.user_id")
