@@ -4,11 +4,21 @@ All notable changes to PMAS are documented here. The project uses a single produ
 
 ## [Unreleased]
 
+### External review collaboration — merged PRs (30 Sep 2026)
+- **#26 (PR #36)** JWT secret import-order fix: `load_dotenv()` now runs before the `database`/`auth` imports, and the lifespan guard additionally rejects the public development secret value. Previously, with the documented `.env`-only setup, tokens were signed with the repo-committed fallback secret while the startup guard passed (critical, auth bypass). Regression-tested in the test suite below.
+- **#30 (PR #37)** Contact-form validation errors now show a distinct red toast with `role="alert"` (assertive live region) and a longer display time — an empty-submit error can no longer be mistaken for a "message sent" confirmation on mobile. Maintainer follow-up bumped the platform service worker to `pmas-platform_v6`.
+- **#28 (PR #38)** Dose dates are now keyed to a fixed clinical timezone (Asia/Kolkata) on both sides: a new `clinicalDateKey()` helper replaces UTC date keys at all 16 client call sites, and `clinical_today()` replaces `date.today()` at all 9 server call sites (recording guard, today/weekly summaries, dashboard, appointments, break-glass, study days, baselines). Doses taken 00:00–05:30 IST were previously attributed to the previous day — a data-quality defect for the primary HEOR outcome. Demo service worker bumped to `pmas-demo_v7`.
+- **#34 (PR #39)** Backend CI on GitHub Actions (free tier): `ruff` lint + a 10-test pytest suite — health endpoint, auth primitives (bcrypt/JWT roundtrip, expiry), and subprocess regression tests for #26 that exercise `.env`-only JWT configuration in a clean process. `ruff.toml` documents every ignore (E402 is required by the #26 import ordering; E712 is idiomatic SQLAlchemy).
+- Account-recovery RCA filed as issue #40 with PR #41 open (pharmacist-reissued activation codes + `token_valid_after` session revocation).
+
+### Site improvements (this PR)
+- **Social-share preview fixed:** `assets/images/og/og-image.png` is now a real 1200×630 card (dark theme, logo, PMAS wordmark) — every page's `og:image`/`twitter:image` meta tags already declared 1200×630, but the file was a 512×512 favicon, degrading WhatsApp/LinkedIn/X link previews.
+- **Manifest icon accuracy:** the `192x192` entry pointed at the 512×512 favicon; a dedicated maskable 192×192 icon is added (`assets/images/icons/icon-192-maskable.png`, dark full-bleed with centered logo for the safe zone), and the invalid `"sizes": "any"` entry now declares `512x512`.
+- Platform service worker bumped to `pmas-platform_v7` (precached `manifest.json` changed; also clears runtime-cached og-image for returning visitors).
+
 ### Self-review round (30 Sep 2026)
 - **Backend hardening:** self-registration is now throttled with the same DB-backed mechanism as login/activation (register runs a bcrypt hash per call — an unthrottled endpoint was a cheap CPU-burn surface). Symptom logs reject future dates (same-day vitals; a future date would corrupt study-day calculation in the research export). All pydantic `.dict()` calls migrated to `.model_dump()` (v2 API).
 - **Consent-screen accessibility (WCAG 2.2):** consent checkboxes enlarged 18px → 24px minimum target size, full-row 44px touch targets, larger consent text (0.95rem labels) for elderly/low-vision users — the one screen every patient must understand before using the app. Service worker cache bumped to `pmas-demo_v8` for the precached styles.css change.
-
-## [Unreleased]
 
 ### Resolved from external code review (issues #27–#35, 30 Sep 2026)
 - **#27** Login/activation throttling is now database-backed (`throttle_states` table): limits survive restarts and are shared across workers; the in-process dicts (unbounded memory, per-worker, reset on restart) are gone. Same policy: 5 consecutive failures lock the phone for 15 minutes; success clears the row. Expired lockout rows are pruned on read, so the table self-cleans.

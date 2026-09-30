@@ -75,7 +75,7 @@
 /* Feature card grid */
 .feature-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
   gap: var(--space-lg);
   margin-top: var(--space-xl);
 }
@@ -260,8 +260,14 @@
   padding: var(--space-md) var(--space-lg);
   margin-bottom: var(--space-md);
   font-size: 0.9rem;
-  display: flex; gap: var(--space-sm); align-items: flex-start;
+  display: flex; flex-wrap: wrap; gap: var(--space-sm); align-items: flex-start;
+  /* the anonymous text flex item defaults to min-width:auto and cannot shrink
+     below its single-line width — that overflowed the box (and the page) on
+     narrow viewports. min-width:0 + inherited overflow-wrap fix it. */
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
+.alert > * { min-width: 0; }
 .alert-info { background: rgba(108,99,255,0.08); border: 1px solid rgba(108,99,255,0.2); color: var(--text); }
 .alert-warning { background: rgba(245,166,35,0.08); border: 1px solid rgba(245,166,35,0.2); color: var(--text); }
 .alert-danger { background: rgba(255,107,107,0.08); border: 1px solid rgba(255,107,107,0.2); color: var(--text); }

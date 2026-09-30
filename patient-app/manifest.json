@@ -1,5 +1,5 @@
 {
-  "name": "PMAS \u2014 Medication & Adherence Support",
+  "name": "PMAS — Medication & Adherence Support",
   "short_name": "PMAS",
   "description": "Pharmacist-led, multilingual, offline-first medication adherence support prototype.",
   "version": "1.0.0",
@@ -15,7 +15,7 @@
     "medical",
     "education"
   ],
-  "author": "Kartik H \u2014 Pharmacist",
+  "author": "Kartik H — Pharmacist",
   "icons": [
     {
       "src": "assets/images/favicon/favicon.png",
@@ -24,14 +24,14 @@
       "purpose": "any"
     },
     {
-      "src": "assets/images/favicon/favicon.png",
+      "src": "assets/images/icons/icon-192-maskable.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "maskable"
     },
     {
       "src": "assets/images/favicon/favicon.png",
-      "sizes": "any",
+      "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
     }
