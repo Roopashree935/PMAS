@@ -206,6 +206,11 @@ async def _throttle_check(db: AsyncSession, context: str, phone: str):
             lu = lu.replace(tzinfo=timezone.utc)
         if datetime.now(timezone.utc) < lu:
             raise HTTPException(status_code=429, detail="Too many failed attempts. Try again later.")
+        # Lockout expired — prune the row on read so the table self-cleans
+        # (review §3.2: TTL pruning instead of unbounded retention).
+        await db.delete(row)
+        await db.commit()
+        return
 
 
 async def _throttle_fail(db: AsyncSession, context: str, phone: str):

@@ -5,7 +5,7 @@ All notable changes to PMAS are documented here. The project uses a single produ
 ## [Unreleased]
 
 ### Resolved from external code review (issues #27–#35, 30 Sep 2026)
-- **#27** Login/activation throttling is now database-backed (`throttle_states` table): limits survive restarts and are shared across workers; the in-process dicts (unbounded memory, per-worker, reset on restart) are gone. Same policy: 5 consecutive failures lock the phone for 15 minutes; success clears the row.
+- **#27** Login/activation throttling is now database-backed (`throttle_states` table): limits survive restarts and are shared across workers; the in-process dicts (unbounded memory, per-worker, reset on restart) are gone. Same policy: 5 consecutive failures lock the phone for 15 minutes; success clears the row. Expired lockout rows are pruned on read, so the table self-cleans.
 - **#29** Pharmacist dashboard adherence is now computed against expected dose slots from active medication plans (shared `expected_dose_slots` helper), not just logged doses — a patient who took 1 of 3 doses and logged only that one now reads 33%, not 100%.
 - **31** Study IDs widened from 6 to 10 digits: at 6 digits the ~50% birthday-collision point is ~1.2k patients; 10 digits pushes it far beyond pilot scale.
 - **32** Break-glass adherence history fetched with a single `dose_date BETWEEN` range query instead of one query per day (N+1); `backend/migrations/004_indexes.sql` adds the hot foreign-key indexes (run on live DB before deploy, same rule as 002/003).
