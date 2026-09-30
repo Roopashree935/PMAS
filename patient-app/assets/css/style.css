@@ -337,6 +337,12 @@ pre code { background: none; padding: 0; }
 .page-header h1 { margin-bottom: var(--space-sm); }
 .page-header p { color: var(--muted); font-size: 1.1rem; max-width: 600px; margin: 0 auto; }
 
+/* Legal/prose pages (terms, privacy): the body is a narrow left-aligned
+   prose column — a centered header above it reads as misaligned. This
+   variant left-aligns the header to share the column's left edge. */
+.page-header.page-header-left { text-align: left; }
+.page-header.page-header-left p { margin-left: 0; }
+
 /* ─── MOBILE POLISH + ACCESSIBILITY (2026-09-26) ──────────────── */
 /* Skip link: hidden off-screen, appears on keyboard focus only */
 .skip-link {
