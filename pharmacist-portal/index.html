@@ -341,7 +341,7 @@ async function loadDashboard() {
       // Escape all patient-supplied values before rendering (XSS safety)
       const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
       tbody.innerHTML = data.recent_patients.map(p => 
-        `<tr><td>${esc(p.name)}</td><td>${esc(p.phone)}</td><td><span class="badge badge-teal">Active</span></td><td><button class="btn btn-ghost" style="padding:0.3rem 0.7rem;font-size:0.75rem" onclick="viewPatient('${esc(p.phone)}')">View</button></td></tr>`
+        `<tr><td>${esc(p.name)}</td><td>${esc(p.phone)}</td><td><span class="badge badge-teal">Active</span></td><td><button class="btn btn-ghost" style="padding:0.3rem 0.7rem;font-size:0.75rem" onclick="viewPatient('${esc(p.phone)}')">View</button> <button class="btn btn-ghost" style="padding:0.3rem 0.7rem;font-size:0.75rem" onclick="reissueCode('${esc(p.phone)}')">Reset code</button></td></tr>`
       ).join('');
     }
   } catch (err) {
@@ -381,6 +381,22 @@ async function enrollPatient(e) {
 
 function viewPatient(phone) {
   showToast('Patient detail view coming soon: ' + phone);
+}
+
+/* #40: re-issue a one-time activation code when a patient forgot their
+   password. The patient then uses the regular "Activate with code" flow
+   in the PMAS app to choose a NEW password — the pharmacist never sets
+   or sees it (G8 holds for recovery too). */
+async function reissueCode(phone) {
+  if (!confirm('Re-issue a one-time activation code for ' + phone + '?\n\nUse this when the patient forgot their password. They open the PMAS app → Account & Cloud Sync → "Activate with code" → enter the code and choose a NEW password. You never set or see their password.')) return;
+  try {
+    const data = await apiCall('/api/v1/pharmacist/reissue-activation', { method: 'POST', body: { phone_number: phone } });
+    const code = data.activation_code;
+    const copied = confirm('New one-time code (valid 24 hours):\n\n    ' + code + '\n\nRelay it to the patient securely — it will not be shown again. Press OK to copy it to your clipboard.');
+    if (copied) { try { navigator.clipboard.writeText(code); } catch (e) {} }
+  } catch (err) {
+    showToast('Re-issue failed: ' + err.message);
+  }
 }
 
 // ─── Tabs ────────────────────────────────────────────────────
