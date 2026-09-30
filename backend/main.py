@@ -7,6 +7,7 @@ import os
 import secrets
 from datetime import date, datetime, timezone, timedelta
 from uuid import uuid4, UUID
+from zoneinfo import ZoneInfo
 from typing import List, Optional
 
 # Load environment variables BEFORE importing database/auth: both modules
@@ -99,6 +100,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ─── Fixed clinical timezone ────────────────────────────────
+# All dose dates and day-scoped summaries use Asia/Kolkata, NOT the
+# server's local time (UTC on Render): the IST day boundary is 05:30,
+# so UTC-based dates attribute 00:00-05:30 IST doses to the previous
+# day (#28). The patient app keys dates with the same fixed offset
+# (see patient-app/demo/js/clinical-date.js: clinicalDateKey).
+CLINICAL_TZ = ZoneInfo("Asia/Kolkata")
+
+
+def clinical_today() -> date:
+    """Today's date in the fixed clinical timezone (Asia/Kolkata)."""
+    return datetime.now(CLINICAL_TZ).date()
+
 
 # ═══════════════════════════════════════════════════════════════
 # HEALTH & SYSTEM
@@ -142,7 +156,7 @@ async def register(user_data: UserRegister, request: Request, db: AsyncSession =
         study_meta = StudyMetadata(
             user_id=user.id,
             study_id=f"PMAS-{str(uuid4().int)[:6]}",
-            baseline_date=date.today()
+            baseline_date=clinical_today()
         )
         db.add(study_meta)
 
@@ -389,7 +403,7 @@ async def record_adherence(
         raise HTTPException(status_code=404, detail="Medication not found")
 
     # Dose date may not be more than one day in the future (timezone tolerance)
-    if record_data.dose_date > date.today() + timedelta(days=1):
+    if record_data.dose_date > clinical_today() + timedelta(days=1):
         raise HTTPException(status_code=422, detail="Dose date cannot be in the future")
 
     # Check if already exists (upsert)
@@ -427,7 +441,7 @@ async def get_today_adherence(
     db: AsyncSession = Depends(get_db)
 ):
     """Get today's adherence summary for the current patient."""
-    today = date.today()
+    today = clinical_today()
     meds_result = await db.execute(
         select(MedicationPlan).where(
             and_(
@@ -467,7 +481,7 @@ async def get_weekly_adherence(
     db: AsyncSession = Depends(get_db)
 ):
     """Get weekly adherence summary (last 7 days)."""
-    today = date.today()
+    today = clinical_today()
     start = today - timedelta(days=6)
 
     meds_result = await db.execute(
@@ -585,7 +599,7 @@ async def get_appointments(
     """Get appointments for the current patient."""
     query = select(Appointment).where(Appointment.patient_id == user.id)
     if upcoming_only:
-        query = query.where(Appointment.appointment_date >= date.today())
+        query = query.where(Appointment.appointment_date >= clinical_today())
     result = await db.execute(query.order_by(Appointment.appointment_date.desc()))
     return result.scalars().all()
 
@@ -654,7 +668,7 @@ async def enroll_patient(
     study_meta = StudyMetadata(
         user_id=user.id,
         study_id=f"PMAS-{str(uuid4().int)[:6]}",
-        baseline_date=date.today()
+        baseline_date=clinical_today()
     )
     db.add(study_meta)
 
@@ -710,7 +724,7 @@ async def pharmacist_dashboard(
         )
     )
 
-    today = date.today()
+    today = clinical_today()
     adherence_records = await db.execute(
         select(AdherenceRecord).where(
             AdherenceRecord.dose_date == today,
@@ -806,7 +820,7 @@ async def research_export(
         ip_address=request.client.host if request.client else None
     ))
 
-    study_day = (date.today() - study.baseline_date).days if study.baseline_date else 0
+    study_day = (clinical_today() - study.baseline_date).days if study.baseline_date else 0
 
     # Adherence records — study_day instead of raw dates
     adh_result = await db.execute(
@@ -902,7 +916,7 @@ async def admin_break_glass(
         select(MedicationPlan).where(MedicationPlan.patient_id == patient.id)
     )).scalars().all()
 
-    today = date.today()
+    today = clinical_today()
     taken = 0
     expected_slots = 0
     for i in range(7):
