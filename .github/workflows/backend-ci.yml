@@ -44,4 +44,15 @@ jobs:
         run: ruff check .
 
       - name: Tests (pytest)
-        run: pytest -v
+        # Exit code 5 = "no tests collected": happens on PRs that predate the
+        # tests directory (e.g. PRs opened before this CI PR merges). Treat as
+        # pass so those PRs are not marked red for missing tests.
+        run: |
+          set +e
+          pytest -v
+          code=$?
+          if [ "$code" -eq 5 ]; then
+            echo "No tests collected on this ref - passing."
+            exit 0
+          fi
+          exit $code
