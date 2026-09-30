@@ -64,6 +64,27 @@
       function closeInstallBanner() {
         document.getElementById('pwa-install-banner').classList.remove('show');
       }
+      function toggleAllConsentChecks(on) {
+        for (let i = 1; i <= 6; i++) {
+          const cb = document.getElementById('consent-check' + i);
+          if (cb) cb.checked = on;
+        }
+      }
+      function dismissIosHint() {
+        document.getElementById('ios-install-hint').style.display = 'none';
+        try { sessionStorage.setItem('pmas_ios_hint_dismissed', '1'); } catch (e) {}
+      }
+      // iOS Safari never fires beforeinstallprompt — show the manual path instead
+      (function () {
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+                      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        const standalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+        if (isIOS && !standalone) {
+          let dismissed = false;
+          try { dismissed = sessionStorage.getItem('pmas_ios_hint_dismissed') === '1'; } catch (e) {}
+          if (!dismissed) document.getElementById('ios-install-hint').style.display = 'flex';
+        }
+      })();
       window.addEventListener('appinstalled', () => {
         console.log('PMAS installed as PWA');
       });
@@ -107,6 +128,10 @@
 
     <!-- Granular consent: 6 separate acknowledgements -->
     <div class="consent-checks">
+      <div class="consent-check-item" style="border-bottom:2px solid rgba(255,255,255,0.12);">
+        <input type="checkbox" id="consent-select-all" onchange="toggleAllConsentChecks(this.checked)" aria-label="Select all">
+        <label for="consent-select-all" data-i18n="consent_select_all" style="font-weight:700;">Select all</label>
+      </div>
       <div class="consent-check-item">
         <input type="checkbox" id="consent-check1">
         <label for="consent-check1" data-i18n="consent_check1">I understand the purpose of this study.</label>
@@ -625,11 +650,17 @@
 <!-- PWA Install Banner -->
 <div id="pwa-install-banner">
   <div class="install-text">
-    <strong>Install PMAS</strong><br>
-    Add to your home screen for quick access
+    <strong data-i18n="install_banner_title">Install PMAS</strong><br>
+    <span data-i18n="install_banner_text">Add to your home screen for quick access</span>
   </div>
-  <button id="pwa-install-btn" onclick="installPWA()">Install</button>
+  <button id="pwa-install-btn" onclick="installPWA()" data-i18n="install_btn">Install</button>
   <button id="pwa-install-close" onclick="closeInstallBanner()" aria-label="Dismiss">×</button>
+</div>
+
+<!-- iOS never fires beforeinstallprompt — show Share > Add to Home Screen hint instead -->
+<div id="ios-install-hint" style="display:none;position:fixed;bottom:5.5rem;left:1rem;right:1rem;background:var(--surface2);border:1px solid var(--teal);border-radius:var(--radius);padding:0.75rem 1rem;z-index:150;box-shadow:0 4px 24px rgba(0,0,0,0.4);font-size:0.82rem;align-items:center;gap:0.75rem;">
+  <span style="flex:1;" data-i18n="ios_install_hint">On iPhone or iPad: tap the Share button, then choose Add to Home Screen</span>
+  <button onclick="dismissIosHint()" aria-label="Dismiss" style="background:none;border:none;color:var(--muted);font-size:1.2rem;cursor:pointer;padding:0 4px;">×</button>
 </div>
 
 </body>

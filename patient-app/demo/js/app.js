@@ -41,8 +41,9 @@ let lang = 'en';
 
 function changeLang(code) {
   lang = T[code] ? code : 'en';
+  try { localStorage.setItem('pmas_lang', lang); } catch (e) {}
   applyTranslations();
-  // Save preference
+  // Save preference (consented users also keep it in the consent record)
   const consent = DB.get('consent');
   if (consent) { consent.language = lang; DB.set('consent', consent); }
 }
@@ -866,7 +867,7 @@ window.addEventListener('load', () => {
 
   const consent = DB.get('consent');
   if (consent) {
-    lang = consent.language || 'en';
+    lang = consent.language || (function(){ try { return localStorage.getItem('pmas_lang') || 'en'; } catch (e) { return 'en'; } })();
     const langSelector = el('lang-selector');
     if (langSelector) langSelector.value = lang;
     el('consent-screen').classList.add('hidden');
@@ -876,6 +877,18 @@ window.addEventListener('load', () => {
     renderAll();
     Reminders.start();
   } else {
+    // Pre-consent: restore the language chosen on a previous visit (persisted
+    // by changeLang) so the consent screen itself opens in the right language
+    try {
+      const saved = localStorage.getItem('pmas_lang');
+      if (saved && T[saved] && saved !== 'en') {
+        lang = saved;
+        const sel = el('lang-selector');
+        if (sel) sel.value = saved;
+        const csel = el('consent-lang');
+        if (csel) csel.value = saved;
+      }
+    } catch (e) {}
     // Apply translations to consent screen
     applyTranslations();
   }

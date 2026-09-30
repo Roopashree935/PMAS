@@ -10,6 +10,11 @@ const T = {
     // App
     app_title: "PMAS",
     app_subtitle: "Medication & Adherence Support",
+    install_banner_title: "Install PMAS",
+    install_banner_text: "Add to your home screen for quick access",
+    install_btn: "Install",
+    consent_select_all: "Select all",
+    ios_install_hint: "On iPhone or iPad: tap the Share button, then choose Add to Home Screen",
     welcome_sub: "Good day",
     badge_study: "Independent Research",
 
@@ -270,8 +275,13 @@ const T = {
 
   /* ─── TELUGU ──────────────────────────────────────────────── */
   te: {
-    app_title: "PMAS లైట్",
+    app_title: "PMAS",
     app_subtitle: "మందు మరియు సంరక్షణ సహాయం",
+    install_banner_title: "PMAS ని ఇన్‌స్టాల్ చేయండి",
+    install_banner_text: "త్వరగా వాడుకోవడానికి మీ హోమ్ స్క్రీన్‌కి యాడ్ చేసుకోండి",
+    install_btn: "ఇన్‌స్టాల్ చేయండి",
+    consent_select_all: "అన్నీ సెలెక్ట్ చేయండి",
+    ios_install_hint: "iPhone లేదా iPad లో: షేర్ బటన్‌ని నొక్కండి, ఆ తర్వాత Add to Home Screen ని ఎంచుకోండి",
     welcome_sub: "శుభదినం",
     badge_study: "స్వతంత్ర పరిశోధన",
 
@@ -513,8 +523,13 @@ const T = {
 
   /* ─── KANNADA ─────────────────────────────────────────────── */
   kn: {
-    app_title: "PMAS ಲೈಟ್",
+    app_title: "PMAS",
     app_subtitle: "ಔಷಧಿ ಮತ್ತು ಅನುಸರಣೆ ಬೆಂಬಲ",
+    install_banner_title: "PMAS ಇನ್‌ಸ್ಟಾಲ್ ಮಾಡಿ",
+    install_banner_text: "ತ್ವರಿತವಾಗಿ ಬಳಸಲು ನಿಮ್ಮ ಹೋಮ್ ಸ್ಕ್ರೀನ್‌ಗೆ ಸೇರಿಸಿ",
+    install_btn: "ಇನ್‌ಸ್ಟಾಲ್",
+    consent_select_all: "ಎಲ್ಲವನ್ನೂ ಆಯ್ಕೆ ಮಾಡಿ",
+    ios_install_hint: "iPhone ಅಥವಾ iPad ನಲ್ಲಿ: ಶೇರ್ ಬಟನ್ ಒತ್ತಿ, ನಂತರ Add to Home Screen ಆಯ್ಕೆ ಮಾಡಿ",
     welcome_sub: "ಶುಭ ದಿನ",
     badge_study: "ಸ್ವತಂತ್ರ ಸಂಶೋಧನೆ",
 
@@ -756,8 +771,13 @@ const T = {
 
   /* ─── TAMIL ──────────────────────────────────────────────── */
   ta: {
-    app_title: "PMAS லைட்",
+    app_title: "PMAS",
     app_subtitle: "மருந்து மற்றும் பின்பற்றல் ஆதரவு",
+    install_banner_title: "PMAS-ஐ இன்ஸ்டால் செய்யுங்கள்",
+    install_banner_text: "விரைவாகப் பயன்படுத்த உங்கள் ஹோம் ஸ்கிரீனில் சேருங்கள்",
+    install_btn: "இன்ஸ்டால்",
+    consent_select_all: "எல்லாவற்றையும் தேர்ந்தெடுக்கவும்",
+    ios_install_hint: "iPhone அல்லது iPad-ல்: Share பட்டனைத் தட்டி, பிறகு Add to Home Screen-ஐத் தேர்ந்தெடுக்கவும்",
     welcome_sub: "நல்ல நாள்",
     badge_study: "சுயாதீன ஆராய்ச்சி",
 
@@ -999,8 +1019,13 @@ const T = {
 
   /* ─── HINDI ──────────────────────────────────────────────── */
   hi: {
-    app_title: "PMAS लाइट",
+    app_title: "PMAS",
     app_subtitle: "दवा और अनुपालन सहायता",
+    install_banner_title: "PMAS इंस्टॉल करें",
+    install_banner_text: "आसान एक्सेस के लिए अपने होम स्क्रीन पर जोड़ें",
+    install_btn: "इंस्टॉल करें",
+    consent_select_all: "सब चुनें",
+    ios_install_hint: "iPhone या iPad पर: शेयर बटन पर टैप करें, फिर Add to Home Screen चुनें।",
     welcome_sub: "सुप्रभात",
     badge_study: "स्वतंत्र शोध",
 

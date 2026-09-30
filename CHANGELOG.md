@@ -4,6 +4,15 @@ All notable changes to PMAS are documented here. The project uses a single produ
 
 ## [Unreleased]
 
+### Patient-app demo fixes (30 Sep 2026, maintainer round)
+- **Branding:** the app title said "PMAS" in English but "PMAS Lite" (transliterated) in Telugu, Kannada, Tamil and Hindi — a leftover from the demo's earliest days. All five languages now show "PMAS".
+- **Install (PWA):** the demo manifest declared the invalid `"sizes": "any"` for a PNG icon and pointed its 192x192 maskable entry at the 512x512 favicon, which broke Chrome's installability criteria — the install banner never appeared. Icon entries corrected (same treatment as the platform manifest in #42); the install banner is now translated into all five languages, and iPhone/iPad users (where the automatic prompt never fires) get a "Share → Add to Home Screen" hint instead.
+- **Consent UX:** a "Select all" toggle now sits above the six consent acknowledgements, so the common path is one tap instead of six. All six granular acknowledgements remain (unchanged wording — DPDP-relevant text untouched), translated in all five languages.
+- **Language persistence (pre-consent):** a language chosen on the consent screen now survives reloads — previously it only persisted after consent was given, so an interrupted first visit fell back to English.
+- Service worker bumped to `pmas-demo_v9` for the precached index.html/i18n.js/app.js changes.
+
+## [Unreleased]
+
 ### External review collaboration — merged PRs (30 Sep 2026)
 - **#26 (PR #36)** JWT secret import-order fix: `load_dotenv()` now runs before the `database`/`auth` imports, and the lifespan guard additionally rejects the public development secret value. Previously, with the documented `.env`-only setup, tokens were signed with the repo-committed fallback secret while the startup guard passed (critical, auth bypass). Regression-tested in the test suite below.
 - **#30 (PR #37)** Contact-form validation errors now show a distinct red toast with `role="alert"` (assertive live region) and a longer display time — an empty-submit error can no longer be mistaken for a "message sent" confirmation on mobile. Maintainer follow-up bumped the platform service worker to `pmas-platform_v6`.
