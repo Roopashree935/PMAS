@@ -72,7 +72,7 @@ const StudyID = {
 
   setBaseline(dateStr) {
     const meta = this.get();
-    meta.baseline_date = dateStr || new Date().toISOString().split('T')[0];
+    meta.baseline_date = dateStr || clinicalDateKey();
     DB.set('study_meta', meta);
   },
 
@@ -83,7 +83,7 @@ const StudyID = {
     const meta = this.get();
     if (!meta.baseline_date) return 0;
     const baseline = new Date(meta.baseline_date + 'T00:00:00');
-    const today = new Date(new Date().toISOString().split('T')[0] + 'T00:00:00');
+    const today = new Date(clinicalDateKey() + 'T00:00:00');
     const diffMs = today - baseline;
     return Math.floor(diffMs / 86400000);
   },
@@ -147,7 +147,7 @@ const Adherence = {
 
   /* Calculate today's adherence percentage */
   getTodayStats() {
-    const today = new Date().toISOString().split('T')[0];
+    const today = clinicalDateKey();
     const meds = DB.get('medications') || [];
     const activeMeds = meds.filter(m => {
       return (!m.start_date || m.start_date <= today) &&
@@ -183,7 +183,7 @@ const Adherence = {
     for (let i = 0; i < 7; i++) {
       const d = new Date(today);
       d.setDate(d.getDate() - i);
-      const dateStr = d.toISOString().split('T')[0];
+      const dateStr = clinicalDateKey(d);
       const activeMeds = meds.filter(m => {
         return (!m.start_date || m.start_date <= dateStr) &&
                (!m.end_date || m.end_date >= dateStr);
