@@ -64,12 +64,6 @@
       function closeInstallBanner() {
         document.getElementById('pwa-install-banner').classList.remove('show');
       }
-      function toggleAllConsentChecks(on) {
-        for (let i = 1; i <= 6; i++) {
-          const cb = document.getElementById('consent-check' + i);
-          if (cb) cb.checked = on;
-        }
-      }
       function dismissIosHint() {
         document.getElementById('ios-install-hint').style.display = 'none';
         try { sessionStorage.setItem('pmas_ios_hint_dismissed', '1'); } catch (e) {}
@@ -126,36 +120,31 @@
 
     <p data-i18n="consent_intro">This tool is a research prototype for academic evaluation. It is not a licensed medical device and does not replace clinical advice.</p>
 
-    <!-- Granular consent: 6 separate acknowledgements -->
+    <!-- What you are agreeing to — plain-language summary (informational) -->
+    <div class="consent-bullets" role="list">
+      <div role="listitem" data-i18n="consent_check1">I understand the purpose of this study.</div>
+      <div role="listitem" data-i18n="consent_check2">I understand what information will be collected.</div>
+      <div role="listitem" data-i18n="consent_check3">I understand that participation is voluntary.</div>
+      <div role="listitem" data-i18n="consent_check4">I understand that I can withdraw at any time.</div>
+      <div role="listitem" data-i18n="consent_check5">I understand how my research data will be used.</div>
+    </div>
+
+    <!-- Agreement: three acknowledgements -->
     <div class="consent-checks">
-      <div class="consent-check-item" style="border-bottom:2px solid rgba(255,255,255,0.12);">
-        <input type="checkbox" id="consent-select-all" onchange="toggleAllConsentChecks(this.checked)" aria-label="Select all">
-        <label for="consent-select-all" data-i18n="consent_select_all" style="font-weight:700;">Select all</label>
+      <div class="consent-check-item">
+        <input type="checkbox" id="consent-age">
+        <label for="consent-age" data-i18n="consent_age">I confirm I am 18 years or older</label>
       </div>
       <div class="consent-check-item">
-        <input type="checkbox" id="consent-check1">
-        <label for="consent-check1" data-i18n="consent_check1">I understand the purpose of this study.</label>
+        <input type="checkbox" id="consent-agree">
+        <label for="consent-agree" data-i18n="consent_agree">I agree to the Privacy Policy and Terms of Use</label>
       </div>
       <div class="consent-check-item">
-        <input type="checkbox" id="consent-check2">
-        <label for="consent-check2" data-i18n="consent_check2">I understand what information will be collected.</label>
+        <input type="checkbox" id="consent-safety">
+        <label for="consent-safety" data-i18n="consent_safety">I understand PMAS is a research prototype and does not replace professional medical advice</label>
       </div>
-      <div class="consent-check-item">
-        <input type="checkbox" id="consent-check3">
-        <label for="consent-check3" data-i18n="consent_check3">I understand that participation is voluntary.</label>
-      </div>
-      <div class="consent-check-item">
-        <input type="checkbox" id="consent-check4">
-        <label for="consent-check4" data-i18n="consent_check4">I understand that I can withdraw at any time.</label>
-      </div>
-      <div class="consent-check-item">
-        <input type="checkbox" id="consent-check5">
-        <label for="consent-check5" data-i18n="consent_check5">I understand how my research data will be used.</label>
-      </div>
-      <div class="consent-check-item">
-        <input type="checkbox" id="consent-check6">
-        <label for="consent-check6" data-i18n="consent_check6">I understand this tool does not replace professional healthcare.</label>
-      </div>
+    </div>
+    <p class="consent-links"><a href="../privacy.html">Privacy Policy</a> · <a href="../terms.html">Terms of Use</a></p>
     </div>
 
     <div class="form-group mt-1">
@@ -170,6 +159,7 @@
     </div>
 
     <button class="btn btn-primary mt-1" onclick="acceptConsent()" data-i18n="consent_continue">Continue</button>
+    <button class="btn mt-1" style="background:transparent;color:var(--teal);border:1px solid var(--teal);" onclick="skipDemo()" data-i18n="skip_demo_btn">Skip — try the demo without an account</button>
 
     <p style="font-size:0.72rem;color:var(--muted);margin-top:0.75rem;" data-i18n="consent_footer">
       Designed in alignment with DPDP Act 2023 (India) principles. Research prototype — not for clinical deployment.

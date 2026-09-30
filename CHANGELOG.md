@@ -4,6 +4,13 @@ All notable changes to PMAS are documented here. The project uses a single produ
 
 ## [Unreleased]
 
+### Consent UX v2 (30 Sep 2026, maintainer round — owner direction)
+- The six granular consent checkboxes are replaced by a Google-style acknowledgment: **three checkboxes** (18+ age confirmation, agreement to the Privacy Policy & Terms of Use, research-prototype / not-medical-advice safety) after a plain-language bulleted summary of the study points. All six substantive points remain presented on-screen; the wording of every retained string is unchanged. The stored consent record now truthfully reflects the new UI (`ui_version: 2`, three booleans) and continues to sync to the server attestation unchanged.
+- **Skip-login trial path:** an explicit "Skip — try the demo without an account" button on the consent screen (translated, all five languages). The three acknowledgements are still required — data is written locally from the first tap — but users now see clearly that no account is needed; a toast explains where cloud sync can be added later.
+- Service worker bumped to `pmas-demo_v10`.
+
+## [Unreleased]
+
 ### Patient-app demo fixes (30 Sep 2026, maintainer round)
 - **Branding:** the app title said "PMAS" in English but "PMAS Lite" (transliterated) in Telugu, Kannada, Tamil and Hindi — a leftover from the demo's earliest days. All five languages now show "PMAS".
 - **Install (PWA):** the demo manifest declared the invalid `"sizes": "any"` for a PNG icon and pointed its 192x192 maskable entry at the 512x512 favicon, which broke Chrome's installability criteria — the install banner never appeared. Icon entries corrected (same treatment as the platform manifest in #42); the install banner is now translated into all five languages, and iPhone/iPad users (where the automatic prompt never fires) get a "Share → Add to Home Screen" hint instead.

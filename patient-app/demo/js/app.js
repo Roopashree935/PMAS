@@ -80,13 +80,13 @@ function applyTranslations() {
 
 /* ── Granular Consent ────────────────────────────────────── */
 function acceptConsent() {
-  // Check all 6 consent boxes
-  const checks = ['consent-check1','consent-check2','consent-check3',
-                  'consent-check4','consent-check5','consent-check6'];
+  // Three acknowledgements (v2 consent UI): age, policies, research-prototype safety.
+  // The five study points above them are presented as plain-language information.
+  const checks = ['consent-age', 'consent-agree', 'consent-safety'];
   for (const id of checks) {
     if (!el(id).checked) {
       showToast(tr('consent_all_required'));
-      return;
+      return false;
     }
   }
 
@@ -98,6 +98,7 @@ function acceptConsent() {
     timestamp: new Date().toISOString(),
     version: DB.VERSION,
     language: lang,
+    ui_version: 2,
     checks: checks.map(id => el(id).checked)
   });
 
@@ -107,6 +108,16 @@ function acceptConsent() {
   applyTranslations();
   renderAll();
   Reminders.start();
+  return true;
+}
+
+/* Skip-login path: use the app as an offline demo. The three consent
+   acknowledgements are still required (data is stored locally from the
+   first tap) — this only communicates that no account is needed. */
+function skipDemo() {
+  if (acceptConsent()) {
+    setTimeout(() => showToast(tr('demo_mode_toast')), 600);
+  }
 }
 
 /* ── Tab switching ───────────────────────────────────────── */
