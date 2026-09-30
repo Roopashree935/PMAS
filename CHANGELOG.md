@@ -4,6 +4,12 @@ All notable changes to PMAS are documented here. The project uses a single produ
 
 ## [Unreleased]
 
+### Self-review round (30 Sep 2026)
+- **Backend hardening:** self-registration is now throttled with the same DB-backed mechanism as login/activation (register runs a bcrypt hash per call — an unthrottled endpoint was a cheap CPU-burn surface). Symptom logs reject future dates (same-day vitals; a future date would corrupt study-day calculation in the research export). All pydantic `.dict()` calls migrated to `.model_dump()` (v2 API).
+- **Consent-screen accessibility (WCAG 2.2):** consent checkboxes enlarged 18px → 24px minimum target size, full-row 44px touch targets, larger consent text (0.95rem labels) for elderly/low-vision users — the one screen every patient must understand before using the app. Service worker cache bumped to `pmas-demo_v8` for the precached styles.css change.
+
+## [Unreleased]
+
 ### Resolved from external code review (issues #27–#35, 30 Sep 2026)
 - **#27** Login/activation throttling is now database-backed (`throttle_states` table): limits survive restarts and are shared across workers; the in-process dicts (unbounded memory, per-worker, reset on restart) are gone. Same policy: 5 consecutive failures lock the phone for 15 minutes; success clears the row. Expired lockout rows are pruned on read, so the table self-cleans.
 - **#29** Pharmacist dashboard adherence is now computed against expected dose slots from active medication plans (shared `expected_dose_slots` helper), not just logged doses — a patient who took 1 of 3 doses and logged only that one now reads 33%, not 100%.

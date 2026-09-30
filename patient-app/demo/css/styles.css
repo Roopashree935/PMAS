@@ -355,7 +355,7 @@ legend {
   padding: 1.5rem;
 }
 #consent-screen h2 { color: var(--red); font-size: 1.25rem; margin-bottom: 0.75rem; }
-#consent-screen p  { font-size: 0.85rem; line-height: 1.65; color: var(--muted); margin-bottom: 0.75rem; }
+#consent-screen p  { font-size: 0.9rem; line-height: 1.7; color: var(--muted); margin-bottom: 0.75rem; }
 #consent-screen strong { color: var(--text); }
 .consent-meta {
   background: var(--bg); border-radius: 7px;
@@ -365,16 +365,17 @@ legend {
 .consent-meta p { margin-bottom: 3px; }
 .consent-checks { margin: 0.75rem 0; }
 .consent-check-item {
-  display: flex; gap: 0.6rem; align-items: flex-start;
-  padding: 0.5rem 0; border-bottom: 1px solid rgba(255,255,255,0.04);
+  display: flex; gap: 0.75rem; align-items: flex-start;
+  padding: 0.85rem 0; border-bottom: 1px solid rgba(255,255,255,0.04);
+  min-height: 44px; /* full-row touch target for low-dexterity users */
 }
 .consent-check-item:last-child { border-bottom: none; }
 .consent-check-item input[type="checkbox"] {
-  accent-color: var(--teal); width: 18px; height: 18px;
-  cursor: pointer; flex-shrink: 0; margin-top: 2px;
+  accent-color: var(--teal); width: 24px; height: 24px; /* WCAG 2.2 minimum target size */
+  cursor: pointer; flex-shrink: 0; margin-top: 1px;
 }
 .consent-check-item label {
-  font-size: 0.82rem; color: var(--text); cursor: pointer; line-height: 1.5;
+  font-size: 0.95rem; color: var(--text); cursor: pointer; line-height: 1.55;
 }
 
 /* ─── SURVEY EXPORT ──────────────────────────────────────────── */

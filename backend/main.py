@@ -149,8 +149,12 @@ async def register(user_data: UserRegister, request: Request, db: AsyncSession =
     Self-registration is patient-only; the role field is not accepted.
     Staff (pharmacist/admin) accounts are created by an administrator.
     """
+    # Same DB-backed throttle as login/activate: register runs a bcrypt hash
+    # per call, so an unthrottled endpoint is a cheap CPU-burn surface.
+    await _throttle_check(db, "register", user_data.phone_number)
     existing = await db.execute(select(User).where(User.phone_number == user_data.phone_number))
     if existing.scalar_one_or_none():
+        await _throttle_fail(db, "register", user_data.phone_number)
         raise HTTPException(status_code=409, detail="Phone number already registered")
 
     user = User(
@@ -177,6 +181,7 @@ study_id=f"PMAS-{str(uuid4().int)[:10]}",  # 10-digit space (#31): 6 digits 50%-
     # Audit
     db.add(SecurityAuditTrail(performed_by=user.id, action="REGISTER", target_resource="users", ip_address=request.client.host if request.client else None))
 
+    await _throttle_clear(db, "register", user_data.phone_number)
     token = create_access_token(user.id, user.role.value)
     return TokenResponse(access_token=token, role=user.role.value, user_id=str(user.id))
 
@@ -339,10 +344,10 @@ async def create_profile(
 
     if profile:
         # Update existing
-        for key, val in profile_data.dict().items():
+        for key, val in profile_data.model_dump().items():
             setattr(profile, key, val)
     else:
-        profile = PatientProfile(user_id=user.id, **profile_data.dict())
+        profile = PatientProfile(user_id=user.id, **profile_data.model_dump())
         db.add(profile)
 
     db.add(SecurityAuditTrail(performed_by=user.id, action="PROFILE_UPDATE", target_resource="patient_profiles"))
@@ -377,7 +382,7 @@ async def create_medication(
     med = MedicationPlan(
         patient_id=user.id,
         prescribed_by=user.id,  # Self-prescribed by patient; pharmacist uses portal
-        **med_data.dict()
+        **med_data.model_dump()
     )
     db.add(med)
     db.add(SecurityAuditTrail(performed_by=user.id, action="MEDICATION_ADD", target_resource="medication_plans"))
@@ -564,6 +569,11 @@ async def record_symptom(
     db: AsyncSession = Depends(get_db)
 ):
     """Record a symptom telemetry entry with ICMR safety engine."""
+    # Symptom logs are same-day vitals: a future date is invalid input and
+    # would corrupt study-day calculation in the research export.
+    if log.log_date > clinical_today():
+        raise HTTPException(status_code=422, detail="Symptom log date cannot be in the future")
+
     red_flag = False
     action_msg = None
 
@@ -618,7 +628,7 @@ async def create_appointment(
     db: AsyncSession = Depends(get_db)
 ):
     """Create a new appointment."""
-    appt = Appointment(patient_id=user.id, **appt_data.dict())
+    appt = Appointment(patient_id=user.id, **appt_data.model_dump())
     db.add(appt)
     await db.flush()
     return appt

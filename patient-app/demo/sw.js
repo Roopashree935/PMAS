@@ -3,7 +3,7 @@
    Makes the demo app installable and works offline.
    Cache-first strategy for app shell.
    ═══════════════════════════════════════════════════════════════ */
-const CACHE_NAME = 'pmas-demo_v7';
+const CACHE_NAME = 'pmas-demo_v8';
 const APP_SHELL = [
   './',
   './index.html',
