@@ -33,7 +33,8 @@ from schemas import (
     AppointmentCreate, AppointmentResponse,
     PatientEnrollment, PharmacistDashboard,
     AdminUserCreate, AdminUserUpdate, AdminUserResponse,
-    EnrollmentResponse, PasswordChange, ActivationRequest, BreakGlassRequest
+    EnrollmentResponse, PasswordChange, ActivationRequest, BreakGlassRequest,
+    ReissueRequest, ReissueResponse
 )
 from auth import (
     hash_password, verify_password, create_access_token,
@@ -296,6 +297,7 @@ async def activate_account(
         raise HTTPException(status_code=410, detail="Activation code expired. Ask your pharmacist to re-enroll you.")
 
     user.password_hash = hash_password(data.new_password)
+    user.token_valid_after = datetime.now(timezone.utc)  # #40: revoke any earlier sessions
     user.is_active = True
     await db.delete(pending)
     await _throttle_clear(db, "activation", phone)
@@ -317,6 +319,7 @@ async def change_password(
     if not verify_password(data.current_password, user.password_hash):
         raise HTTPException(status_code=401, detail="Current password is incorrect")
     user.password_hash = hash_password(data.new_password)
+    user.token_valid_after = datetime.now(timezone.utc)  # #40: revoke any earlier sessions
     db.add(SecurityAuditTrail(performed_by=user.id, action="PASSWORD_CHANGE", target_resource="auth"))
     return {"status": "changed"}
 
@@ -719,6 +722,76 @@ study_id=f"PMAS-{str(uuid4().int)[:10]}",  # 10-digit space (#31): 6 digits 50%-
         study_id=study_meta.study_id if study_meta else None,
         activation_code=activation_code,
         activation_expires_days=7
+    )
+
+
+@app.post("/api/v1/pharmacist/reissue-activation", response_model=ReissueResponse)
+async def reissue_activation(
+    data: ReissueRequest,
+    request: Request,
+    pharmacist: User = Depends(require_pharmacist),
+    db: AsyncSession = Depends(get_db)
+):
+    """Re-issue a one-time activation code for an enrolled patient (#40).
+
+    Recovery path for a patient who forgot their password: the pharmacist
+    verifies the patient out-of-band (in person or by phone) and relays a
+    fresh one-time code; the patient then completes the REGULAR activation
+    flow (/auth/activate) on their own device to choose a NEW password.
+    The pharmacist never sets or sees the password — G8 holds for recovery
+    exactly as it does for enrollment.
+
+    Permission matrix: restricted to patients this pharmacist personally
+    enrolled (same scope as the dashboard). Self-registered patients are
+    not covered by this endpoint — open design decision, see issue #40.
+    """
+    result = await db.execute(select(User).where(User.phone_number == data.phone_number))
+    patient = result.scalar_one_or_none()
+
+    profile = None
+    if patient:
+        p_result = await db.execute(select(PatientProfile).where(PatientProfile.user_id == patient.id))
+        profile = p_result.scalar_one_or_none()
+
+    # 404 (not 403) for out-of-scope patients: avoids revealing whether the
+    # phone number is enrolled with this pharmacist at all.
+    if (not patient or patient.role != UserRole.patient
+            or not profile or profile.enrolled_by != pharmacist.id):
+        raise HTTPException(status_code=404, detail="Patient not found among your enrolments")
+
+    # Replace any stale pending row (unique constraint on user_id)
+    stale_result = await db.execute(
+        select(PendingActivation).where(PendingActivation.user_id == patient.id)
+    )
+    old_pending = stale_result.scalar_one_or_none()
+    if old_pending:
+        await db.delete(old_pending)
+    await db.flush()
+
+    activation_code = f"{secrets.randbelow(1000000):06d}"
+    db.add(PendingActivation(
+        user_id=patient.id,
+        code_hash=hash_password(activation_code),
+        # Reset window is deliberately shorter than enrollment's 7 days:
+        # a reset implies the patient is actively trying right now (#40).
+        expires_at=datetime.now(timezone.utc) + timedelta(hours=24)
+    ))
+
+    study_result = await db.execute(select(StudyMetadata).where(StudyMetadata.user_id == patient.id))
+    study = study_result.scalar_one_or_none()
+
+    db.add(SecurityAuditTrail(
+        performed_by=pharmacist.id,
+        action="REISSUE_ACTIVATION",
+        target_resource=f"users:{patient.id}",
+        ip_address=request.client.host if request.client else None
+    ))
+
+    return ReissueResponse(
+        user_id=str(patient.id),
+        study_id=study.study_id if study else None,
+        activation_code=activation_code,
+        activation_expires_hours=24
     )
 
 
