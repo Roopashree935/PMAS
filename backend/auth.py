@@ -67,6 +67,20 @@ def decode_access_token(token: str) -> dict:
         )
 
 
+def _token_revoked(payload: dict, token_valid_after) -> bool:
+    """True when the token was minted before the user's last credential
+    rotation (issue #40, Phase 2). NULL marker = no revocation."""
+    if token_valid_after is None:
+        return False
+    tva = token_valid_after
+    if tva.tzinfo is None:  # SQLite returns naive datetimes; Postgres is timezone-aware
+        tva = tva.replace(tzinfo=timezone.utc)
+    iat = payload.get("iat")
+    if iat is None:
+        return False
+    return datetime.fromtimestamp(iat, tz=timezone.utc) < tva
+
+
 # ─── Dependencies ───────────────────────────────────────────
 
 async def get_current_user(
@@ -84,6 +98,12 @@ async def get_current_user(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found or inactive"
+        )
+    # #40 Phase 2: a token minted before the last password rotation is revoked
+    if _token_revoked(payload, user.token_valid_after):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session revoked \u2014 please sign in again"
         )
     return user
 
