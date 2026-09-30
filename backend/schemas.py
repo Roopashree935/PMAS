@@ -42,6 +42,22 @@ class EnrollmentResponse(BaseModel):
     activation_expires_days: int = 7
 
 
+class ReissueRequest(BaseModel):
+    """Pharmacist-initiated activation-code re-issue for account recovery (#40)."""
+    phone_number: str = Field(..., pattern=r"^\d{10}$")
+
+
+class ReissueResponse(BaseModel):
+    """Re-issued one-time activation code for an enrolled patient (#40).
+
+    The patient completes the REGULAR activation flow (/auth/activate)
+    with this code and chooses a new password on their own device."""
+    user_id: str
+    study_id: Optional[str] = None
+    activation_code: str
+    activation_expires_hours: int = 24
+
+
 class ActivationRequest(BaseModel):
     """Patient-side account activation for pharmacist-enrolled patients."""
     phone_number: str = Field(..., pattern=r"^\d{10}$")
