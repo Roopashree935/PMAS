@@ -119,7 +119,7 @@ function switchTab(tabId, btn) {
 
 /* ── Set today as default date ───────────────────────────── */
 function setTodayDates() {
-  const today = new Date().toISOString().split('T')[0];
+  const today = clinicalDateKey();
   ['sym-date','appt-date','med-start'].forEach(id => {
     if (el(id) && !el(id).value) el(id).value = today;
   });
@@ -143,7 +143,7 @@ function updateDashboard() {
 
   setText('dash-name', prof.name || 'Patient');
   setText('stat-meds', meds.filter(m => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = clinicalDateKey();
     return (!m.start_date || m.start_date <= today) && (!m.end_date || m.end_date >= today);
   }).length);
   setText('stat-syms', syms.length);
@@ -156,7 +156,7 @@ function updateDashboard() {
   // ═══ FIXED: Next Medication Due logic ═══
   // Instead of showing activeMeds[0], calculate the actual next
   // scheduled dose based on current time.
-  const today = new Date().toISOString().split('T')[0];
+  const today = clinicalDateKey();
   const now = new Date();
   const currentMinutes = now.getHours() * 60 + now.getMinutes();
 
@@ -881,6 +881,6 @@ window.addEventListener('load', () => {
   }
 
   // Set min date for appointments to today
-  const today = new Date().toISOString().split('T')[0];
+  const today = clinicalDateKey();
   if (el('appt-date')) el('appt-date').min = today;
 });
