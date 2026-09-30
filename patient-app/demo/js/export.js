@@ -51,7 +51,7 @@ function exportResearchData() {
     medications: {
       total_count: meds.length,
       active_count: meds.filter(m => {
-        const today = new Date().toISOString().split('T')[0];
+        const today = clinicalDateKey();
         return (!m.end_date || m.end_date >= today);
       }).length,
       schedule_patterns: meds.map(m => ({
@@ -131,7 +131,7 @@ function generatePatientReport() {
   const appts = DB.get('appointments') || [];
   const todayStats = Adherence.getTodayStats();
   const weeklyStats = Adherence.getWeeklyStats();
-  const today = new Date().toISOString().split('T')[0];
+  const today = clinicalDateKey();
 
   const report = el('patient-report');
   report.textContent = '';  // Clear previous content
