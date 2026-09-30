@@ -145,21 +145,8 @@
       </div>
     </div>
     <p class="consent-links"><a href="../privacy.html">Privacy Policy</a> · <a href="../terms.html">Terms of Use</a></p>
-    </div>
-
-    <div class="form-group mt-1">
-      <label class="field-label" for="consent-lang" data-i18n="consent_lang_label">Select your preferred language before consenting:</label>
-      <select id="consent-lang" class="field-select" onchange="document.getElementById('lang-selector').value=this.value; changeLang(this.value)">
-        <option value="en">English</option>
-        <option value="te">Telugu — తెలుగు</option>
-        <option value="kn">Kannada — ಕನ್ನಡ</option>
-        <option value="ta">Tamil — தமிழ்</option>
-        <option value="hi">Hindi — हिंदी</option>
-      </select>
-    </div>
 
     <button class="btn btn-primary mt-1" onclick="acceptConsent()" data-i18n="consent_continue">Continue</button>
-    <button class="btn mt-1" style="background:transparent;color:var(--teal);border:1px solid var(--teal);" onclick="skipDemo()" data-i18n="skip_demo_btn">Skip — try the demo without an account</button>
 
     <p style="font-size:0.72rem;color:var(--muted);margin-top:0.75rem;" data-i18n="consent_footer">
       Designed in alignment with DPDP Act 2023 (India) principles. Research prototype — not for clinical deployment.

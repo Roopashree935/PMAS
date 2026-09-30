@@ -4,6 +4,14 @@ All notable changes to PMAS are documented here. The project uses a single produ
 
 ## [Unreleased]
 
+### Consent screen fixes (30 Sep 2026, maintainer round)
+- **Fixed (regression from consent v2):** the Continue/Skip buttons and the in-screen language dropdown had ended up **outside** the consent screen container, so they stayed visible over every app section after consent — reported by the owner with screenshots. The DOM structure is rebuilt; verified by strict containment checks (buttons live inside `#consent-screen`, consent screen fully hides after Continue, no consent elements in any app tab).
+- Removed the redundant language-selection dropdown below the checkboxes (the header selector already does this, works pre-consent, and persists the choice).
+- Removed the "Skip — try the demo without an account" button: it duplicated Continue's behaviour. Dedicated login / sign-up / forgot-password screens are deferred design work; for the prototype a single Continue keeps the flow honest.
+- Service worker bumped to `pmas-demo_v11`.
+
+## [Unreleased]
+
 ### Consent UX v2 (30 Sep 2026, maintainer round — owner direction)
 - The six granular consent checkboxes are replaced by a Google-style acknowledgment: **three checkboxes** (18+ age confirmation, agreement to the Privacy Policy & Terms of Use, research-prototype / not-medical-advice safety) after a plain-language bulleted summary of the study points. All six substantive points remain presented on-screen; the wording of every retained string is unchanged. The stored consent record now truthfully reflects the new UI (`ui_version: 2`, three booleans) and continues to sync to the server attestation unchanged.
 - **Skip-login trial path:** an explicit "Skip — try the demo without an account" button on the consent screen (translated, all five languages). The three acknowledgements are still required — data is written locally from the first tap — but users now see clearly that no account is needed; a toast explains where cloud sync can be added later.

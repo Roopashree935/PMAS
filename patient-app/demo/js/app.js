@@ -86,7 +86,7 @@ function acceptConsent() {
   for (const id of checks) {
     if (!el(id).checked) {
       showToast(tr('consent_all_required'));
-      return false;
+      return;
     }
   }
 
@@ -108,17 +108,8 @@ function acceptConsent() {
   applyTranslations();
   renderAll();
   Reminders.start();
-  return true;
 }
 
-/* Skip-login path: use the app as an offline demo. The three consent
-   acknowledgements are still required (data is stored locally from the
-   first tap) — this only communicates that no account is needed. */
-function skipDemo() {
-  if (acceptConsent()) {
-    setTimeout(() => showToast(tr('demo_mode_toast')), 600);
-  }
-}
 
 /* ── Tab switching ───────────────────────────────────────── */
 function switchTab(tabId, btn) {
@@ -896,8 +887,6 @@ window.addEventListener('load', () => {
         lang = saved;
         const sel = el('lang-selector');
         if (sel) sel.value = saved;
-        const csel = el('consent-lang');
-        if (csel) csel.value = saved;
       }
     } catch (e) {}
     // Apply translations to consent screen
