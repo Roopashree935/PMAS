@@ -57,7 +57,7 @@ const Reminders = {
     if (!consent) return;
 
     const meds = DB.get('medications') || [];
-    const today = new Date().toISOString().split('T')[0];
+    const today = clinicalDateKey();
     const now = new Date();
     const currentTime = String(now.getHours()).padStart(2, '0') + ':' +
                         String(now.getMinutes()).padStart(2, '0');

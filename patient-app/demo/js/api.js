@@ -382,7 +382,7 @@ const API = {
   /* ── Local fallback calculations ──────────────────────── */
 
   _localTodayAdherence() {
-    const today = new Date().toISOString().split('T')[0];
+    const today = clinicalDateKey();
     const meds = JSON.parse(localStorage.getItem('pmas_medications') || '[]');
     const records = JSON.parse(localStorage.getItem('pmas_adherence') || '[]')
       .filter(r => r.date === today);
@@ -411,7 +411,7 @@ const API = {
     for (let i = 0; i < 7; i++) {
       const d = new Date(today);
       d.setDate(d.getDate() - i);
-      const dateStr = d.toISOString().split('T')[0];
+      const dateStr = clinicalDateKey(d);
       const dayRecords = records.filter(r => r.date === dateStr);
       meds.forEach(m => {
         if (m.morning) scheduled++;
