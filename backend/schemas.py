@@ -97,7 +97,7 @@ class PatientProfileCreate(BaseModel):
     chronic_conditions: Optional[str] = None
     consent_timestamp: datetime
     consent_version: str = "1.0"
-    consent_checks: Optional[Union[dict, list]] = None  # app sends the six checkbox states as an array
+    consent_checks: Optional[Union[dict, list]] = None  # app sends the three v2 acknowledgement states as an array
     consent_status: bool = False
 
 
