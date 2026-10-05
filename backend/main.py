@@ -852,12 +852,17 @@ async def research_export(
     )
     profile = profile_result.scalar_one_or_none()
     checks = profile.consent_checks if profile else None
+    # The shipped v2 consent UI sends THREE acknowledgements (age, policies,
+    # research-prototype safety) as a list of booleans. The gate previously
+    # required >= 5 (blocking a genuinely consenting patient) while letting any
+    # non-empty dict through (F-09). Accept the shipped list; for the dict form,
+    # require an explicit research flag rather than mere non-emptiness.
     consent_valid = (
         profile is not None
         and profile.consent_status is True
         and (
-            (isinstance(checks, list) and len(checks) >= 5 and all(checks))
-            or (isinstance(checks, dict) and bool(checks))
+            (isinstance(checks, list) and len(checks) >= 3 and all(checks))
+            or (isinstance(checks, dict) and checks.get("research") is True)
         )
     )
     if not consent_valid:
