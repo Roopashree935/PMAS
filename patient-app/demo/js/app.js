@@ -810,8 +810,18 @@ async function syncRegister() {
 
 function syncLogout() {
   API.logout();
+  // F-08: signing out must not leave the previous patient's health record on a
+  // shared device. DB.clearAll() removes profile/medications/symptoms/
+  // appointments/adherence/study_meta/reminder_state (the auth token and the
+  // consent-synced flag are cleared by API.logout()). Return to the consent
+  // screen so the next person on this device starts clean.
+  DB.clearAll();
   updateSyncStatus();
   showToast(tr('sync_offline'));
+  const core = el('app-core');
+  const consent = el('consent-screen');
+  if (core) core.classList.add('hidden');
+  if (consent) consent.classList.remove('hidden');
 }
 
 function toggleActivationForm() {
