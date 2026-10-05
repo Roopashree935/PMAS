@@ -59,3 +59,27 @@ def test_reissue_response_defaults():
     r = ReissueResponse(user_id="abc", activation_code="012345")
     assert r.activation_expires_hours == 24
     assert r.study_id is None
+
+
+def test_marker_in_same_second_as_mint_does_not_revoke():
+    """#40 review regression: a token minted in the SAME request as its own
+    marker must survive. main.py sets the marker at whole-second precision and
+    PyJWT truncates `iat` to whole seconds, so iat == tva -> not revoked.
+    Before the fix the marker carried microseconds and the freshly minted token
+    was self-revoked ~74-80% of the time (found in review, missed by
+    test_fresh_token_roundtrip_unaffected which set the marker 5s in the past)."""
+    uid = uuid4()
+    marker = datetime.now(timezone.utc).replace(microsecond=0)  # as main.py sets it
+    token = create_access_token(uid, "patient")
+    payload = decode_access_token(token)
+    assert _token_revoked(payload, marker) is False
+
+
+def test_subsecond_marker_still_revokes_a_strictly_earlier_token():
+    """The predicate stays strict: a marker set later than a token revokes it.
+    This is what makes the whole-second truncation safe — earlier sessions are
+    still killed, only the same-second case is spared."""
+    instant = datetime(2026, 9, 30, 12, 0, 38, 741000, tzinfo=timezone.utc)
+    payload = {"iat": int(instant.timestamp())}          # 12:00:38
+    assert _token_revoked(payload, instant) is True                       # 38.000 < 38.741
+    assert _token_revoked(payload, instant.replace(microsecond=0)) is False  # 38.000 == 38.000
