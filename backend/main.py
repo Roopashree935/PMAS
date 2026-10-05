@@ -297,7 +297,7 @@ async def activate_account(
         raise HTTPException(status_code=410, detail="Activation code expired. Ask your pharmacist to re-enroll you.")
 
     user.password_hash = hash_password(data.new_password)
-    user.token_valid_after = datetime.now(timezone.utc)  # #40: revoke any earlier sessions
+    user.token_valid_after = datetime.now(timezone.utc).replace(microsecond=0)  # #40: revoke earlier sessions; whole-second precision so a token minted in this same second survives
     user.is_active = True
     await db.delete(pending)
     await _throttle_clear(db, "activation", phone)
@@ -319,7 +319,7 @@ async def change_password(
     if not verify_password(data.current_password, user.password_hash):
         raise HTTPException(status_code=401, detail="Current password is incorrect")
     user.password_hash = hash_password(data.new_password)
-    user.token_valid_after = datetime.now(timezone.utc)  # #40: revoke any earlier sessions
+    user.token_valid_after = datetime.now(timezone.utc).replace(microsecond=0)  # #40: revoke earlier sessions; whole-second precision so a token minted in this same second survives
     db.add(SecurityAuditTrail(performed_by=user.id, action="PASSWORD_CHANGE", target_resource="auth"))
     return {"status": "changed"}
 
