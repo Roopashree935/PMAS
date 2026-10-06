@@ -11,23 +11,36 @@
   --teal:#0ECDA0; --indigo:#6C63FF; --text:#E8F4F8; --muted:#8A9BBE;
   --red:#FF6B6B; --amber:#F5A623; --green:#2ECC71; --border:rgba(255,255,255,0.08);
   --radius:10px; --font:system-ui,-apple-system,'Segoe UI',sans-serif;
+  --on-accent:#06251d; --border-control:rgba(255,255,255,0.40);
+  --teal-ink:#0ECDA0; --indigo-ink:#6C63FF; --amber-ink:#F5A623; --red-ink:#FF6B6B; --green-ink:#2ECC71;
 }
+/* ─── LIGHT THEME (accessibility option) ─────────────────────── */
+[data-theme="light"]{
+  --bg:#F4F7FC; --surface:#FFFFFF; --surface2:#EEF2FA; --surface3:#E2E8F5;
+  --text:#16202F; --muted:#56658A; --border:rgba(11,17,32,0.12);
+  --border-control:rgba(11,17,32,0.50);
+  --teal-ink:#067A5F; --indigo-ink:#4B3FD6; --amber-ink:#8A5A00; --red-ink:#C2352F; --green-ink:#12805A;
+}
+
+.theme-toggle{background:none;border:1px solid var(--border-control);border-radius:7px;width:32px;height:32px;padding:0;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;color:var(--text);font-size:0.9rem;line-height:1}
+.theme-toggle:hover{border-color:var(--teal-ink);color:var(--teal-ink)}
+
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;line-height:1.6}
 *:focus-visible{outline:2px solid var(--teal);outline-offset:3px}
-a{color:var(--teal);text-decoration:none}
+a{color:var(--teal-ink);text-decoration:none}
 
 /* Layout */
 .container{max-width:1140px;margin:0 auto;padding:0 1.5rem}
 .header{background:var(--surface);border-bottom:1px solid var(--border);padding:1rem 1.5rem;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:100}
-.header h1{font-size:1.2rem;color:var(--teal);display:flex;align-items:center;gap:0.5rem}
+.header h1{font-size:1.2rem;color:var(--teal-ink);display:flex;align-items:center;gap:0.5rem}
 .header img{width:28px;height:28px;border-radius:6px}
 .header-actions{display:flex;gap:0.75rem;align-items:center}
 .badge{font-size:0.65rem;font-weight:700;padding:3px 10px;border-radius:20px;text-transform:uppercase}
-.badge-teal{background:rgba(14,205,160,0.15);color:var(--teal)}
-.badge-indigo{background:rgba(108,99,255,0.15);color:var(--indigo)}
-.badge-amber{background:rgba(245,166,35,0.15);color:var(--amber)}
-.badge-red{background:rgba(255,107,107,0.15);color:var(--red)}
+.badge-teal{background:rgba(14,205,160,0.15);color:var(--teal-ink)}
+.badge-indigo{background:rgba(108,99,255,0.15);color:var(--indigo-ink)}
+.badge-amber{background:rgba(245,166,35,0.15);color:var(--amber-ink)}
+.badge-red{background:rgba(255,107,107,0.15);color:var(--red-ink)}
 
 /* Login */
 .login-wrap{max-width:400px;margin:4rem auto;padding:0 1rem}
@@ -39,16 +52,16 @@ a{color:var(--teal);text-decoration:none}
 .form-group{margin-bottom:1rem}
 .form-label{display:block;font-size:0.82rem;color:var(--muted);margin-bottom:0.3rem}
 .form-input,.form-select,.form-textarea{width:100%;background:var(--bg);border:1px solid rgba(255,255,255,0.12);border-radius:7px;color:var(--text);padding:0.6rem 0.9rem;font-size:0.92rem;font-family:var(--font)}
-.form-input:focus,.form-select:focus,.form-textarea:focus{border-color:var(--teal);outline:none}
+.form-input:focus,.form-select:focus,.form-textarea:focus{border-color:var(--teal-ink);outline:none}
 .form-textarea{resize:vertical;min-height:80px}
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:0.75rem}
 
 /* Buttons */
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:0.5rem;padding:0.7rem 1.5rem;border:none;border-radius:7px;font-family:var(--font);font-size:0.9rem;font-weight:700;cursor:pointer;transition:opacity 0.15s;text-decoration:none}
 .btn:active{transform:scale(0.97)}
-.btn-primary{background:var(--teal);color:var(--bg)}
+.btn-primary{background:var(--teal);color:var(--on-accent)}
 .btn-secondary{background:var(--indigo);color:#fff}
-.btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--border)}
+.btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--border-control)}
 .btn-block{display:flex;width:100%}
 
 /* Cards */
@@ -59,10 +72,10 @@ a{color:var(--teal);text-decoration:none}
 .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;margin-bottom:1.5rem}
 .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem;text-align:center}
 .stat-num{font-size:2rem;font-weight:800;line-height:1;margin-bottom:4px}
-.stat-teal .stat-num{color:var(--teal)}
-.stat-indigo .stat-num{color:var(--indigo)}
-.stat-amber .stat-num{color:var(--amber)}
-.stat-red .stat-num{color:var(--red)}
+.stat-teal .stat-num{color:var(--teal-ink)}
+.stat-indigo .stat-num{color:var(--indigo-ink)}
+.stat-amber .stat-num{color:var(--amber-ink)}
+.stat-red .stat-num{color:var(--red-ink)}
 .stat-lbl{font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em}
 
 /* Table */
@@ -82,7 +95,7 @@ tr:hover td{background:var(--surface2)}
 /* Tabs */
 .tabs{display:flex;gap:0.5rem;border-bottom:1px solid var(--border);margin-bottom:1.5rem}
 .tab-btn{background:none;border:none;color:var(--muted);padding:0.6rem 1rem;font-size:0.9rem;cursor:pointer;border-bottom:2px solid transparent;font-family:var(--font)}
-.tab-btn.active{color:var(--teal);border-bottom-color:var(--teal)}
+.tab-btn.active{color:var(--teal-ink);border-bottom-color:var(--teal-ink)}
 .tab-content{display:none}
 .tab-content.active{display:block}
 
@@ -107,6 +120,7 @@ tr:hover td{background:var(--surface2)}
   </h1>
   <div class="header-actions">
     <span id="user-badge" class="badge badge-teal hidden">Pharmacist</span>
+    <button class="theme-toggle" type="button" aria-label="Switch theme" title="Switch theme">☀</button>
     <button id="logout-btn" class="btn btn-ghost hidden" onclick="logout()">Logout</button>
   </div>
 </header>
@@ -341,7 +355,7 @@ async function loadDashboard() {
       // Escape all patient-supplied values before rendering (XSS safety)
       const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
       tbody.innerHTML = data.recent_patients.map(p => 
-        `<tr><td>${esc(p.name)}</td><td>${esc(p.phone)}</td><td><span class="badge badge-teal">Active</span></td><td><button class="btn btn-ghost" style="padding:0.3rem 0.7rem;font-size:0.75rem" onclick="viewPatient('${esc(p.phone)}')">View</button></td></tr>`
+        `<tr><td>${esc(p.name)}</td><td>${esc(p.phone)}</td><td><span class="badge badge-teal">Active</span></td><td><button class="btn btn-ghost" style="padding:0.3rem 0.7rem;font-size:0.75rem" onclick="viewPatient('${esc(p.phone)}')">View</button> <button class="btn btn-ghost" style="padding:0.3rem 0.7rem;font-size:0.75rem" onclick="reissueCode('${esc(p.phone)}')">Reset code</button></td></tr>`
       ).join('');
     }
   } catch (err) {
@@ -383,6 +397,22 @@ function viewPatient(phone) {
   showToast('Patient detail view coming soon: ' + phone);
 }
 
+/* #40: re-issue a one-time activation code when a patient forgot their
+   password. The patient then uses the regular "Activate with code" flow
+   in the PMAS app to choose a NEW password — the pharmacist never sets
+   or sees it (G8 holds for recovery too). */
+async function reissueCode(phone) {
+  if (!confirm('Re-issue a one-time activation code for ' + phone + '?\n\nUse this when the patient forgot their password. They open the PMAS app → Account & Cloud Sync → "Activate with code" → enter the code and choose a NEW password. You never set or see their password.')) return;
+  try {
+    const data = await apiCall('/api/v1/pharmacist/reissue-activation', { method: 'POST', body: { phone_number: phone } });
+    const code = data.activation_code;
+    const copied = confirm('New one-time code (valid 24 hours):\n\n    ' + code + '\n\nRelay it to the patient securely — it will not be shown again. Press OK to copy it to your clipboard.');
+    if (copied) { try { navigator.clipboard.writeText(code); } catch (e) {} }
+  } catch (err) {
+    showToast('Re-issue failed: ' + err.message);
+  }
+}
+
 // ─── Tabs ────────────────────────────────────────────────────
 function switchTab(tabId, btn) {
   document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
@@ -395,6 +425,37 @@ function switchTab(tabId, btn) {
 if (token && (userRole === 'pharmacist' || userRole === 'admin')) {
   showDashboard();
 }
+</script>
+
+<script>
+/* Theme toggle — dark-first, light as an accessibility option (shares the
+   'pmas-theme' key with the platform site and demo). */
+(function () {
+  var KEY = 'pmas-theme';
+  function apply(t) {
+    document.documentElement.setAttribute('data-theme', t);
+    var b = document.querySelector('.theme-toggle');
+    if (b) {
+      b.textContent = t === 'dark' ? '☀' : '☾';
+      b.setAttribute('aria-label', t === 'dark' ? 'Switch to light mode' : 'Switch to dark mode');
+    }
+    var m = document.querySelector('meta[name="theme-color"]');
+    if (m) m.setAttribute('content', t === 'dark' ? '#0B1120' : '#F4F7FC');
+  }
+  var saved = null; try { saved = localStorage.getItem(KEY); } catch (e) {}
+  var prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+  var cur = saved || (prefersLight ? 'light' : 'dark');
+  apply(cur);
+  document.addEventListener('DOMContentLoaded', function () {
+    apply(cur);
+    var b = document.querySelector('.theme-toggle');
+    if (b) b.addEventListener('click', function () {
+      cur = cur === 'dark' ? 'light' : 'dark';
+      try { localStorage.setItem(KEY, cur); } catch (e) {}
+      apply(cur);
+    });
+  });
+})();
 </script>
 </body>
 </html>
