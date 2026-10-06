@@ -26,9 +26,9 @@
       }
       #pwa-install-banner.show { display: flex; }
       #pwa-install-banner .install-text { flex: 1; font-size: 0.82rem; }
-      #pwa-install-banner .install-text strong { color: var(--teal); }
+      #pwa-install-banner .install-text strong { color: var(--teal-ink); }
       #pwa-install-btn {
-        background: var(--teal); color: var(--bg);
+        background: var(--teal); color: var(--on-accent);
         border: none; border-radius: 6px;
         padding: 0.5rem 1rem; font-size: 0.8rem; font-weight: 700;
         cursor: pointer; white-space: nowrap;
@@ -101,6 +101,7 @@
       <option value="ta">TA</option>
       <option value="hi">HI</option>
     </select>
+    <button class="theme-toggle" type="button" aria-label="Switch theme" title="Switch theme">☀</button>
   </div>
 </header>
 
@@ -200,7 +201,7 @@
         <p class="section-subtitle text-red" data-i18n="emerg">Emergency Contact</p>
         <p id="dash-emerg-name" style="font-weight:600;margin-bottom:4px;">Not set — please update Profile</p>
         <p id="dash-emerg-rel" class="text-muted"></p>
-        <a href="tel:" id="dash-emerg-phone" style="font-size:1.3rem;font-weight:800;color:#fff;text-decoration:none;display:block;margin-top:6px;">—</a>
+        <a href="tel:" id="dash-emerg-phone" style="font-size:1.3rem;font-weight:800;color:var(--red-ink);text-decoration:none;display:block;margin-top:6px;">—</a>
       </div>
     </section>
 
@@ -459,7 +460,7 @@
 
       <!-- ── Medication Reminders (PWA notifications) ──────── -->
       <div class="research-disclaimer">
-        <strong style="color:var(--teal);" data-i18n="reminders_title">🔔 Medication Reminders</strong><br>
+        <strong style="color:var(--teal-ink);" data-i18n="reminders_title">🔔 Medication Reminders</strong><br>
         <span data-i18n="reminders_desc">Turn on reminders to get a notification when a dose is due. Works best when PMAS is installed on your home screen.</span>
       </div>
       <div class="field-row">
@@ -475,7 +476,7 @@
 
       <!-- ── Account & Cloud Sync (optional) ────────────────── -->
       <div class="research-disclaimer">
-        <strong style="color:var(--indigo);" data-i18n="sync_title">☁️ Account & Cloud Sync</strong><br>
+        <strong style="color:var(--indigo-ink);" data-i18n="sync_title">☁️ Account & Cloud Sync</strong><br>
         <span data-i18n="sync_desc">Optional. Connect this app to your hospital's PMAS server so your pharmacist can see your progress. Everything works offline without this.</span>
       </div>
       <form id="sync-form" onsubmit="return false;" novalidate>
@@ -495,7 +496,7 @@
         </div>
         <div class="field-row">
           <label style="display:flex;gap:0.5rem;align-items:flex-start;font-size:0.78rem;color:var(--text);margin-top:0.75rem;cursor:pointer;">
-            <input type="checkbox" id="sync-age" style="margin-top:2px;accent-color:var(--indigo);">
+            <input type="checkbox" id="sync-age" style="margin-top:2px;accent-color:var(--indigo-ink);">
             <span data-i18n="sync_age">I confirm I am 18 years or older</span>
           </label>
           <button class="btn btn-primary mt-1" onclick="syncLogin()" data-i18n="sync_sign_in">Sign In</button>
@@ -530,7 +531,7 @@
 
       <!-- ── Research Data Export (Study ID + study day) ─ -->
       <div class="research-disclaimer">
-        <strong style="color:var(--indigo);" data-i18n="research_export_title">Research Data Export</strong><br>
+        <strong style="color:var(--indigo-ink);" data-i18n="research_export_title">Research Data Export</strong><br>
         <span data-i18n="research_export_desc1">The export below contains no personal identifiers (name, phone, DOB, emergency contact, doctor names, or free-text notes removed).</span><br><br>
         <span data-i18n="research_export_desc2">Data is referenced by Study ID and Study Day rather than raw dates to minimise re-identification risk. This de-identified data may be shared with the research team for study analysis.</span>
       </div>
@@ -640,5 +641,36 @@
   <button onclick="dismissIosHint()" aria-label="Dismiss" style="background:none;border:none;color:var(--muted);font-size:1.2rem;cursor:pointer;padding:0 4px;">×</button>
 </div>
 
+
+<script>
+/* Theme toggle — dark-first, light as an accessibility option. Shares the
+   'pmas-theme' key with the platform site so the choice is consistent. */
+(function () {
+  var KEY = 'pmas-theme';
+  function apply(t) {
+    document.documentElement.setAttribute('data-theme', t);
+    var b = document.querySelector('.theme-toggle');
+    if (b) {
+      b.textContent = t === 'dark' ? '☀' : '☾';
+      b.setAttribute('aria-label', t === 'dark' ? 'Switch to light mode' : 'Switch to dark mode');
+    }
+    var m = document.querySelector('meta[name="theme-color"]');
+    if (m) m.setAttribute('content', t === 'dark' ? '#0B1120' : '#F4F7FC');
+  }
+  var saved = null; try { saved = localStorage.getItem(KEY); } catch (e) {}
+  var prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+  var cur = saved || (prefersLight ? 'light' : 'dark');
+  apply(cur);
+  document.addEventListener('DOMContentLoaded', function () {
+    apply(cur);
+    var b = document.querySelector('.theme-toggle');
+    if (b) b.addEventListener('click', function () {
+      cur = cur === 'dark' ? 'light' : 'dark';
+      try { localStorage.setItem(KEY, cur); } catch (e) {}
+      apply(cur);
+    });
+  });
+})();
+</script>
 </body>
 </html>
