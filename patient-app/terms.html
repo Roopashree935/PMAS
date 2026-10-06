@@ -10,6 +10,17 @@
 <link rel="stylesheet" href="assets/css/components.css">
 <link rel="stylesheet" href="assets/css/utilities.css">
 <link rel="stylesheet" href="assets/css/animations.css">
+    <script>
+      /* Apply the saved theme before first paint so the correct palette shows
+         immediately (theme.js re-applies on DOMContentLoaded). */
+      (function () {
+        try {
+          var t = localStorage.getItem('pmas-theme') ||
+                  (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+          document.documentElement.setAttribute('data-theme', t);
+        } catch (e) {}
+      })();
+    </script>
 
     <!-- ═══ AI-ERA META LAYER ═════════════════════════════════════ -->
     <!-- Canonical URL -->
@@ -132,6 +143,7 @@
       <li><a href="./#research">Research</a></li>
       <li><a href="contact.html">Contact</a></li>
       <li><a href="demo/index.html" target="_blank" rel="noopener" class="nav-cta">Try Demo</a></li>
+      <li><button class="theme-toggle" type="button" aria-label="Switch theme" title="Switch theme">☀</button></li>
     </ul>
   </nav>
 </header>
