@@ -56,7 +56,7 @@
 /* ─── TYPING CURSOR ─────────────────────────────────────────── */
 .typing-cursor::after {
   content: '|';
-  color: var(--teal);
+  color: var(--teal-ink);
   animation: blink 1s step-end infinite;
 }
 @keyframes blink {
