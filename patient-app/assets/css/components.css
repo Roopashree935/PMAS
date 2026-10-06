@@ -23,7 +23,7 @@
 .btn:active { transform: scale(0.97); }
 .btn-primary {
   background: var(--teal);
-  color: var(--bg);
+  color: var(--on-accent);
 }
 .btn-primary:hover {
   background: var(--teal-dark);
@@ -44,11 +44,13 @@
 .btn-ghost {
   background: transparent;
   color: var(--text);
-  border: 1px solid var(--border-bright);
+  /* --border-control meets the 3:1 non-text contrast minimum (WCAG 1.4.11);
+     the old --border-bright (16% white) measured ~1.6:1 and read as plain text */
+  border: 1px solid var(--border-control);
 }
 .btn-ghost:hover {
-  border-color: var(--teal);
-  color: var(--teal);
+  border-color: var(--teal-ink);
+  color: var(--teal-ink);
   text-decoration: none;
 }
 .btn-lg { padding: 1rem 2rem; font-size: 1.05rem; }
@@ -124,10 +126,10 @@
   line-height: 1;
   margin-bottom: var(--space-xs);
 }
-.stat-teal .stat-num { color: var(--teal); }
-.stat-indigo .stat-num { color: var(--indigo); }
-.stat-amber .stat-num { color: var(--amber); }
-.stat-red .stat-num { color: var(--red); }
+.stat-teal .stat-num { color: var(--teal-ink); }
+.stat-indigo .stat-num { color: var(--indigo-ink); }
+.stat-amber .stat-num { color: var(--amber-ink); }
+.stat-red .stat-num { color: var(--red-ink); }
 .stat-lbl {
   font-size: 0.75rem;
   color: var(--muted);
@@ -147,10 +149,10 @@
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
-.badge-teal { background: rgba(14,205,160,0.15); color: var(--teal); }
-.badge-indigo { background: rgba(108,99,255,0.15); color: var(--indigo); }
-.badge-amber { background: rgba(245,166,35,0.15); color: var(--amber); }
-.badge-red { background: rgba(255,107,107,0.15); color: var(--red); }
+.badge-teal { background: rgba(14,205,160,0.15); color: var(--teal-ink); }
+.badge-indigo { background: rgba(108,99,255,0.15); color: var(--indigo-ink); }
+.badge-amber { background: rgba(245,166,35,0.15); color: var(--amber-ink); }
+.badge-red { background: rgba(255,107,107,0.15); color: var(--red-ink); }
 .badge-muted { background: var(--surface2); color: var(--muted); }
 
 /* ─── SECTIONS ───────────────────────────────────────────────── */
@@ -194,7 +196,7 @@
 }
 .timeline-item.indigo .timeline-dot { background: var(--indigo); }
 .timeline-item h4 { font-size: 1rem; margin-bottom: 4px; }
-.timeline-item .timeline-date { font-size: 0.8rem; color: var(--teal); font-weight: 600; margin-bottom: 4px; }
+.timeline-item .timeline-date { font-size: 0.8rem; color: var(--teal-ink); font-weight: 600; margin-bottom: 4px; }
 .timeline-item p { font-size: 0.88rem; color: var(--muted); margin: 0; }
 
 /* ─── CODE BLOCK / TERMINAL ──────────────────────────────────── */
